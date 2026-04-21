@@ -1,13 +1,17 @@
 import asyncio
 import json
+import os
 import re
+import subprocess
 from fastapi import FastAPI, WebSocket, WebSocketDisconnect
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.staticfiles import StaticFiles
+from pydantic import BaseModel
 from openai import AsyncOpenAI
+from datetime import datetime
 
 app = FastAPI()
 
-# 允许跨域（本地测试必备）
 app.add_middleware(
     CORSMiddleware,
     allow_origins=["*"],
@@ -16,105 +20,199 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
+os.makedirs("static_plots", exist_ok=True)
+os.makedirs("experiment_data", exist_ok=True)
+app.mount("/static", StaticFiles(directory="static_plots"), name="static")
+
 # ==========================================
-# 核心大模型配置与接口
+# 大模型 (LLM) 引擎配置
 # ==========================================
 KIMI_API_KEY = "sk-KnNJv6ikxTJV6R2VIXdN1SJ7LBZpzBEW0YcVkHqUTuvclgxB"
-client = AsyncOpenAI(
-    api_key=KIMI_API_KEY,
-    base_url="https://api.moonshot.cn/v1",
-)
+client = AsyncOpenAI(api_key=KIMI_API_KEY, base_url="https://api.moonshot.cn/v1")
+
+active_websockets = []
 
 
-async def call_llm_agent(system_prompt: str, is_json: bool = False):
-    """独立的 LLM 调用封装"""
+class SetupData(BaseModel):
+    sub_id: str
+    group: int
+    task_id: int
+
+
+@app.post("/api/start_baseline")
+async def start_baseline(data: SetupData):
+    print(f"[{datetime.now().strftime('%H:%M:%S')}] 🚀 开始基线采集 (Sub: {data.sub_id})")
     try:
-        response = await client.chat.completions.create(
-            model="kimi-k2.5",
-            messages=[{"role": "system", "content": system_prompt}],
-            temperature=0.8
-        )
-        content = response.choices[0].message.content
-
-        if is_json:
-            # 正则过滤，确保提取到合法的 JSON 对象
-            match = re.search(r'\{.*\}', content, re.DOTALL)
-            return json.loads(match.group(0)) if match else json.loads(content)
-
-        return content.strip()
+        subprocess.Popen(["python", "baseline_recorder.py", data.sub_id])
     except Exception as e:
-        print(f"API 调用异常: {e}")
-        return {"bg_color": "#1e1e2f"} if is_json else "系统信号干扰中..."
+        print(f"启动录制脚本失败: {e}")
+    return {"status": "success", "image_url": "/static/current_ica.png"}
+
+
+class ICAExcludes(BaseModel):
+    exclude_indices: str
+
+
+@app.post("/api/submit_ica")
+async def submit_ica(data: ICAExcludes):
+    indices = [int(x.strip()) for x in data.exclude_indices.split(",") if x.strip()]
+    with open("ica_config.json", "w", encoding="utf-8") as f:
+        json.dump({"manual_excludes": indices}, f, ensure_ascii=False)
+    return {"status": "success"}
+
+
+@app.post("/api/save_experiment")
+async def save_experiment(payload: dict):
+    sub_id = payload.get("metadata", {}).get("sub_id", "UnknownSub")
+    file_path = f"experiment_data/{sub_id}_UltimateLog.json"
+    with open(file_path, "w", encoding="utf-8") as f:
+        json.dump(payload, f, ensure_ascii=False, indent=2)
+    print(f"🎉 实验数据归档至: {file_path}")
+    return {"status": "success"}
+
+
+@app.post("/api/alert_depletion")
+async def alert_depletion():
+    # 纯转发：告诉所有前端，生理枯竭了！触发组 3 的逻辑
+    for ws in active_websockets:
+        await ws.send_json({"type": "physiological_alert"})
+    return {"status": "success"}
 
 
 # ==========================================
-# A-Gentle 三路并发路由 (核心逻辑)
+# 核心 Agent 调用函数
 # ==========================================
-async def route_ui_controller(text: str):
-    prompt = f"""你是A-Gentle系统的物理环境调节器。用户当前创作陷入停滞。
-    已写文本："{text}"
-    请仅输出严格的JSON，包含网页背景颜色(HEX格式)。
-    如果是悬疑/压抑/紧张情绪，选择深冷色(如 #1e1e2f 或 #0f172a)。
-    如果是温馨/日常/放松情绪，选择柔和暖色(如 #fff7ed 或 #fdf4ff)。
-    格式: {{"bg_color": "#hexcode"}}"""
-    return await call_llm_agent(prompt, is_json=True)
+async def call_agent(role: str, sys_prompt: str, user_prompt: str):
+    try:
+        resp = await client.chat.completions.create(
+            model="kimi-k2.5",
+            messages=[
+                {"role": "system", "content": sys_prompt},
+                {"role": "user", "content": user_prompt}
+            ],
+            temperature=0.85
+        )
+        return {"role": role, "content": resp.choices[0].message.content.strip()}
+    except Exception as e:
+        print(f"Agent {role} 调用失败: {e}")
+        return {"role": role, "content": "（由于系统干扰，该角色的信号暂时丢失）"}
 
 
-async def route_agent_a(text: str):
-    prompt = f"""你是A-Gentle剧场中的'理性刺客'（Agent A）。你冷酷、犀利，专门寻找人类逻辑的漏洞和陈词滥调。
-    用户正在进行创作，目前卡壳了。最新文本："{text}"
-    要求：用极度简短、一针见血的一句话（不超过20字），指出这段文本最俗套或最不合理的地方。不要给修改建议，只负责打破他的舒适区。"""
-    return await call_llm_agent(prompt, is_json=False)
-
-
-async def route_agent_b(text: str):
-    prompt = f"""你是A-Gentle剧场中的'通感大师'（Agent B）。你负责提供剥离视觉的具身物理感受。
-    用户最新文本："{text}"
-    要求：抛开画面描写，用一句话（不超过20字）补充一个极度细腻的嗅觉、触觉或内脏感觉（例如：胃酸倒流的灼烧、生锈铁丝的腥味、零下十度的刺痛）。不要提建议，直接白描这种感觉。"""
-    return await call_llm_agent(prompt, is_json=False)
+async def call_env_agent(theme: str, current_text: str):
+    """专门负责返回 JSON 调整环境颜色的主脑"""
+    sys_prompt = """你是一个环境调节主脑。请根据作者正在写作的内容和主题，返回一个JSON来改变网页的背景色和文字颜色。
+    必须严格返回合法的JSON，格式如下：
+    {
+      "bg_color": "#十六进制深沉背景色",
+      "text_color": "#十六进制对比文字色",
+      "glow_color": "rgba(r,g,b, 0.4)",
+      "focus_keyword": "从作者原文中挑出一个能代表当前意境的2-4字短语"
+    }"""
+    try:
+        resp = await client.chat.completions.create(
+            model="kimi-k2.5",
+            messages=[{"role": "system", "content": sys_prompt},
+                      {"role": "user", "content": f"主题：{theme}\n当前文本：{current_text[-200:]}"}],
+            temperature=0.7
+        )
+        content = resp.choices[0].message.content
+        match = re.search(r'\{.*\}', content, re.DOTALL)
+        if match:
+            return json.loads(match.group(0))
+    except Exception as e:
+        pass
+    return {"bg_color": "#1e293b", "text_color": "#e2e8f0", "glow_color": "rgba(99,102,241,0.3)",
+            "focus_keyword": "深渊凝视"}
 
 
 # ==========================================
-# WebSocket 调度中枢
+# WebSocket 路由
 # ==========================================
 @app.websocket("/ws")
 async def websocket_endpoint(websocket: WebSocket):
     await websocket.accept()
-    print("实验平台（前端）已连接！")
+    active_websockets.append(websocket)
 
     try:
         while True:
             data = await websocket.receive_text()
             payload = json.loads(data)
+            msg_type = payload.get("type")
 
-            pause_time = payload.get("pause_duration", 0)
-            current_text = payload.get("text", "")
+            # ----------------------------------------------------
+            # 组 2 的纯被动自由对话逻辑
+            # ----------------------------------------------------
+            if msg_type == "group2_chat":
+                user_msg = payload.get("text")
+                sys_prompt = "你是一个专业的小说创作助手。请根据作者的提问，提供有建设性的建议。尽量简短，不要长篇大论。"
 
-            # FSM 状态机检测：停顿大于5秒且有实际内容，判定为 State 0
-            if pause_time >= 5.0 and len(current_text) > 5:
-                print(f"检测到停顿 {pause_time:.1f}s，进入 State 0！触发并发引擎...")
+                resp = await client.chat.completions.create(
+                    model="kimi-k2.5",
+                    messages=[
+                        {"role": "system", "content": sys_prompt},
+                        {"role": "user", "content": user_msg}
+                    ],
+                    temperature=0.7
+                )
+                await websocket.send_json({"type": "chat_reply", "content": resp.choices[0].message.content.strip()})
 
-                # 通知前端开始播放加载动画
-                await websocket.send_json({"type": "status", "message": "A-Gentle 引擎介入中..."})
+            # ----------------------------------------------------
+            # 组 3 的多智能体串行争论逻辑 (小剧场)
+            # ----------------------------------------------------
+            elif msg_type == "trigger_theater_intervention":
+                theme = payload.get("theme", "")
+                text = payload.get("text", "")
+                print(f"[{datetime.now().strftime('%H:%M:%S')}] 🚨 AND门触发！正在拉起串行剧场...")
 
-                # 并发执行三条大模型请求（极大降低延迟）
-                ui_task = route_ui_controller(current_text)
-                agent_a_task = route_agent_a(current_text)
-                agent_b_task = route_agent_b(current_text)
+                # 1. 环境主脑可以和对话并行，因为不影响文字
+                env_task = asyncio.create_task(call_env_agent(theme, text))
 
-                ui_res, a_res, b_res = await asyncio.gather(ui_task, agent_a_task, agent_b_task)
+                # ------ 串行争论开始 ------
 
-                # 打包结果发回前端
-                await websocket.send_json({
-                    "type": "intervention",
-                    "ui": ui_res,
-                    "theater": [
-                        {"role": "Agent A", "content": a_res},
-                        {"role": "Agent B", "content": b_res}
-                    ]
-                })
+                # Act 1: 绝对理性者先发言
+                base_context = f"当前设定的世界观主题是：{theme}\n作者目前写了这些内容（可能卡壳了）：\n{text[-300:]}\n"
+
+                sys_rat = "你代表【绝对的理性】。说话必须严谨、冷酷、逻辑缜密（像一个莫得感情的物理学家）。字数控制在40字以内。"
+                user_rat = base_context + "\n请一针见血地指出剧情下一步在逻辑或物理法则上的必然走向。"
+
+                res_rat = await call_agent("rational", sys_rat, user_rat)
+                # 算出一个发一个，实现真实的“正在输入”的错落感
+                await websocket.send_json(
+                    {"type": "theater_actor_msg", "role": res_rat["role"], "content": res_rat["content"]})
+                await asyncio.sleep(1.5)  # 制造人类打字的停顿感
+
+                # Act 2: 人文关怀者看到理性者的话，出来反驳
+                sys_hum = "你代表【人文关怀】。说话必须温柔、充满悲悯、感性（像一个充满哲思的诗人）。字数控制在40字以内。"
+                user_hum = base_context + f"\n就在刚刚，【绝对理性者】提出了这个冷酷的建议：\n“{res_rat['content']}”\n\n请你反驳他！从人物内心情感、人性或道德困境的角度，给出更有温度的剧情建议。"
+
+                res_hum = await call_agent("humanist", sys_hum, user_hum)
+                await websocket.send_json(
+                    {"type": "theater_actor_msg", "role": res_hum["role"], "content": res_hum["content"]})
+                await asyncio.sleep(1.5)
+
+                # Act 3: 脑洞者看到前两人的争论，出来嘲讽全场
+                sys_cre = "你代表【天马行空的脑洞】。说话必须疯狂、诡异、极具颠覆性甚至有些疯癫。字数控制在40字以内。"
+                user_cre = base_context + f"\n刚才，【绝对理性者】说：\n“{res_rat['content']}”\n然后【人文关怀者】反驳道：\n“{res_hum['content']}”\n\n请你嘲笑他们两人的思维太局限、太无聊！抛出一个完全颠覆常理、极具视觉冲击力的疯狂情节转折！"
+
+                res_cre = await call_agent("creative", sys_cre, user_cre)
+                await websocket.send_json(
+                    {"type": "theater_actor_msg", "role": res_cre["role"], "content": res_cre["content"]})
+
+                # 最后，应用环境改变
+                res_env = await env_task
+                await websocket.send_json({"type": "env_adjustment", "style": res_env})
+                print(f"[{datetime.now().strftime('%H:%M:%S')}] 🎭 剧场演出完毕！")
+
 
     except WebSocketDisconnect:
-        print("实验平台（前端）已断开连接。")
+        active_websockets.remove(websocket)
     except Exception as e:
-        print(f"WebSocket 发生错误: {e}")
+        if websocket in active_websockets:
+            active_websockets.remove(websocket)
+        print(f"WS Exception: {e}")
+
+
+if __name__ == "__main__":
+    import uvicorn
+
+    uvicorn.run("main:app", host="0.0.0.0", port=8000, reload=True)

@@ -6,13 +6,41 @@
     <script src="https://unpkg.com/vue@3/dist/vue.global.js"></script>
     <script src="https://cdn.tailwindcss.com"></script>
     <style>
-        body { background-color: var(--app-bg-color, #f8fafc); transition: background-color 3s ease-in-out; }
+        :root {
+            /* 默认环境样式 */
+            --env-bg: #f8fafc;
+            --env-color: #334155;
+            --env-glow: rgba(59, 130, 246, 0.0);
+            --app-bg-color: #e2e8f0;
+        }
+        body {
+            background-color: var(--app-bg-color);
+            transition: background-color 2s ease-in-out;
+        }
         ::-webkit-scrollbar { width: 6px; }
         ::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 3px; }
+
         /* 情感方格图格子样式 */
         .affect-cell { transition: all 0.2s; }
         .affect-cell:hover { background-color: #bfdbfe; transform: scale(1.1); z-index: 10; }
         .selected-cell { background-color: #3b82f6 !important; box-shadow: 0 0 10px rgba(59, 130, 246, 0.5); z-index: 20; transform: scale(1.1); }
+
+        /* 动态环境输入框样式 */
+        .env-textarea {
+            background-color: var(--env-bg);
+            color: var(--env-color);
+            transition: all 2s ease-in-out;
+            caret-color: var(--env-color);
+            box-shadow: inset 0 0 20px var(--env-glow);
+        }
+        .env-textarea:focus {
+            outline: none;
+            box-shadow: inset 0 0 30px var(--env-glow), 0 0 15px var(--env-glow);
+        }
+
+        /* 剧场聊天气泡动画 */
+        .fade-in { animation: fadeIn 0.5s ease-in-out forwards; opacity: 0; }
+        @keyframes fadeIn { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
     </style>
 </head>
 <body class="antialiased h-screen overflow-hidden text-gray-800">
@@ -29,9 +57,9 @@
             <div>
                 <label class="block text-sm font-semibold mb-1">实验组别</label>
                 <select v-model="config.group" class="w-full border-2 border-gray-200 p-3 rounded-lg focus:border-blue-500 outline-none">
-                    <option :value="1">组 1 (对照组：无AI纯记录)</option>
+                    <option :value="1">组 1 (对照组：纯记录)</option>
                     <option :value="2">组 2 (互动组：主动对话AI)</option>
-                    <option :value="3">组 3 (干预组：双路生理自适应)</option>
+                    <option :value="3">组 3 (干预组：双路生理环境小剧场)</option>
                 </select>
             </div>
             <button @click="startBaseline" class="w-full bg-blue-600 text-white font-bold py-4 rounded-lg shadow-lg hover:bg-blue-700 transition mt-4">
@@ -51,7 +79,7 @@
 
         <div v-if="!pretestDone">
             <p class="text-gray-500 mb-4">请被试在此期间完成前测问卷</p>
-            <button @click="stage = 'pretest'" class="bg-indigo-600 text-white px-8 py-3 rounded-full hover:bg-indigo-700 shadow-md font-bold transition">
+            <button @click="stage = 'pretest'" class="bg-indigo-600 text-white px-8 py-3 rounded-full hover:bg-indigo-700 font-bold transition">
                 📝 进入前测问卷
             </button>
         </div>
@@ -83,25 +111,38 @@
         </div>
     </div>
 
-    <div v-if="stage === 'ica_review'" class="bg-white p-8 rounded-2xl shadow-xl flex flex-col items-center max-w-4xl">
-        <h2 class="text-2xl font-bold mb-2">ICA 伪迹排查与任务准备</h2>
-        <p class="text-gray-500 mb-6">主试：请给被试发放【世界观与人物选择纸】，同时根据下图输入需要剔除的干扰成分。</p>
+    <div v-if="stage === 'ica_review'" class="bg-white p-8 rounded-2xl shadow-xl flex flex-col items-center max-w-4xl w-full">
+        <h2 class="text-3xl font-bold mb-2">任务准备区</h2>
+        <p class="text-gray-500 mb-6">请发放世界观纸张供被试选择，并排查ICA伪迹。</p>
 
-        <img :src="icaImageUrl" class="h-[500px] border-2 border-gray-200 rounded mb-6 object-contain" alt="ICA 面板图">
+        <div class="w-full bg-blue-50 p-6 rounded-xl border border-blue-100 mb-6 flex items-center justify-between">
+            <div class="text-blue-900 font-bold text-lg">🌍 被试选择的世界观理论：</div>
+            <select v-model="config.theme" class="border-2 border-blue-300 p-3 rounded-lg text-lg outline-none focus:ring-2 focus:ring-blue-500 w-1/2">
+                <option value="1. 整合信息理论 (IIT)">1. 整合信息理论 (IIT)</option>
+                <option value="2. 量子芝诺效应 (Quantum Zeno)">2. 量子芝诺效应 (Quantum Zeno)</option>
+                <option value="3. 自由能原理 (Free Energy)">3. 自由能原理 (Free Energy)</option>
+                <option value="4. 多世界诠释 (MWI)">4. 多世界诠释 (MWI)</option>
+                <option value="5. 具身认知 (Embodied Cognition)">5. 具身认知 (Embodied Cognition)</option>
+            </select>
+        </div>
+
+        <img :src="icaImageUrl" class="h-[400px] border-2 border-gray-200 rounded mb-6 object-contain" alt="ICA 面板图" onerror="this.src='https://via.placeholder.com/800x400?text=Waiting+for+ICA+Plot...'">
 
         <div class="flex items-center gap-4 w-full justify-center bg-gray-50 p-4 rounded-lg">
-            <label class="font-bold">剔除成分索引:</label>
+            <label class="font-bold">剔除ICA成分:</label>
             <input v-model="icaExcludes" type="text" placeholder="如: 0,1" class="border-2 border-gray-300 p-2 rounded w-48 text-center text-lg focus:border-blue-500 outline-none">
-            <button @click="submitICAAndStartTask" class="bg-red-500 text-white px-8 py-2 rounded font-bold hover:bg-red-600 shadow">
-                确认剔除，正式开始任务 1
+            <button @click="submitICAAndStartTask" class="bg-red-500 text-white px-8 py-3 rounded-lg font-bold hover:bg-red-600 shadow-md">
+                配置完成，正式开始任务 1
             </button>
         </div>
     </div>
 
     <div v-if="stage === 'task'" class="flex h-full w-full gap-6">
-        <div class="flex-1 flex flex-col bg-white rounded-2xl shadow-2xl overflow-hidden relative border border-gray-100">
+        <div class="flex-1 flex flex-col bg-white rounded-2xl shadow-2xl overflow-hidden border border-gray-200">
             <div class="bg-slate-800 text-white px-6 py-4 flex justify-between items-center shadow-md z-10">
-                <span class="font-bold text-lg tracking-widest">A-GENTLE 创作枢纽 | 任务 {{ currentTaskIdx + 1 }} / 3</span>
+                <span class="font-bold text-lg tracking-widest">
+                    A-GENTLE 创作枢纽 | 任务 {{ currentTaskIdx + 1 }}/3 | 世界观: {{ config.theme.split(' ')[1] }}
+                </span>
                 <div class="flex items-center gap-4">
                     <span class="text-sm bg-slate-700 px-3 py-1 rounded">组别: {{ config.group }}</span>
                     <span class="text-red-400 font-mono text-xl font-bold bg-slate-900 px-4 py-1 rounded shadow-inner">
@@ -109,29 +150,45 @@
                     </span>
                 </div>
             </div>
-            <textarea v-model="texts[currentTaskIdx]" @keydown="logKey" placeholder="请在此处开始构思当前人物的遭遇..." class="flex-1 p-8 text-xl outline-none resize-none leading-relaxed text-gray-700 bg-transparent relative z-0"></textarea>
+
+            <div v-if="envHighlightText" class="bg-indigo-900/90 text-indigo-100 px-6 py-3 flex items-center gap-3 text-sm transition-all duration-1000 border-b border-indigo-700">
+                <span class="animate-pulse">✨ 环境主脑聚焦：</span>
+                <span class="italic bg-indigo-950 px-2 py-1 rounded">{{ envHighlightText }}</span>
+            </div>
+
+            <textarea v-model="texts[currentTaskIdx]"
+                      @keydown="logKey"
+                      placeholder="请基于所选世界观，构思当前人物的遭遇..."
+                      class="flex-1 p-8 text-xl resize-none leading-relaxed env-textarea"
+                      id="main-writer"></textarea>
         </div>
 
-        <div v-if="config.group === 2 || config.group === 3" class="w-[450px] flex flex-col bg-white rounded-2xl shadow-2xl border border-gray-100 overflow-hidden">
-            <div class="p-4 border-b bg-blue-50/50 flex justify-between items-center">
-                <span class="font-bold text-blue-900 flex items-center gap-2">
-                    <svg class="w-5 h-5 text-blue-600" fill="currentColor" viewBox="0 0 20 20"><path d="M10 2a8 8 0 100 16 8 8 0 000-16zM9 9V5h2v4h4v2h-4v4H9v-4H5V9h4z"></path></svg>
-                    灵感助手
+        <div v-if="config.group === 2 || config.group === 3" class="w-[500px] flex flex-col bg-white rounded-2xl shadow-2xl border border-gray-200 overflow-hidden">
+            <div class="p-4 border-b bg-gradient-to-r from-slate-100 to-slate-200 flex justify-between items-center">
+                <span class="font-bold text-slate-800 flex items-center gap-2">
+                    🎭 A-Gentle 灵感剧场
+                </span>
+                <span v-if="config.group===3 && isState0" class="text-xs bg-red-100 text-red-600 px-2 py-1 rounded font-bold animate-pulse">
+                    多模态干预中...
                 </span>
             </div>
 
-            <div class="flex-1 p-5 overflow-y-auto space-y-4 bg-gray-50/30" id="chat-container">
-                <div v-for="msg in chats[currentTaskIdx]" :class="msg.role === 'user' ? 'text-right' : 'text-left'" class="fade-in">
-                    <span :class="msg.role === 'user' ? 'bg-blue-600 text-white rounded-br-none' : 'bg-white border text-gray-800 rounded-bl-none shadow-sm'" class="inline-block p-4 rounded-2xl max-w-[85%] text-sm leading-relaxed">
+            <div class="flex-1 p-5 overflow-y-auto space-y-5 bg-gray-50" id="chat-container">
+                <div v-for="msg in chats[currentTaskIdx]" class="fade-in flex flex-col" :class="msg.role === 'user' ? 'items-end' : 'items-start'">
+                    <div class="text-xs font-bold mb-1 ml-1 flex items-center gap-1" :class="getRoleColor(msg.role).text">
+                        <span>{{ getRoleIcon(msg.role) }}</span>
+                        <span>{{ getRoleName(msg.role) }}</span>
+                    </div>
+                    <span :class="getRoleColor(msg.role).bg" class="inline-block p-4 rounded-2xl max-w-[90%] text-sm leading-relaxed shadow-sm">
                         {{ msg.content }}
                     </span>
                 </div>
             </div>
 
             <div v-if="config.group === 2" class="p-4 border-t bg-white">
-                <div class="flex rounded-xl overflow-hidden shadow-sm border border-gray-200 focus-within:border-blue-500 focus-within:ring-2 ring-blue-100 transition">
-                    <input v-model="chatInput" @keyup.enter="sendChat" type="text" class="flex-1 p-3 outline-none" placeholder="输入问题按回车发送...">
-                    <button @click="sendChat" class="bg-blue-50 text-blue-700 px-6 font-bold hover:bg-blue-100 transition">发送</button>
+                <div class="flex rounded-xl overflow-hidden shadow-sm border border-gray-300 focus-within:border-blue-500 focus-within:ring-2 ring-blue-100 transition">
+                    <input v-model="chatInput" @keyup.enter="sendChat" type="text" class="flex-1 p-3 outline-none" placeholder="输入问题探讨...">
+                    <button @click="sendChat" class="bg-slate-100 text-slate-700 px-6 font-bold hover:bg-slate-200 transition">发送</button>
                 </div>
             </div>
         </div>
@@ -141,12 +198,7 @@
         <h2 class="text-3xl font-bold mb-2 text-center text-blue-900 border-b pb-4">
             {{ stage === 'midtest' ? `任务 ${currentTaskIdx + 1} 阶段体验评估` : '全流程终极体验后测' }}
         </h2>
-
         <div class="flex-1 overflow-y-auto pr-6 space-y-8 mt-6 pb-10">
-            <p class="text-gray-500 font-bold bg-blue-50 p-3 rounded text-center">
-                {{ stage === 'midtest' ? '请回想您在刚刚过去的 15 分钟创作过程中的状态，快速选择最符合您体验的评分。' : '请结合您在整个实验过程（包含全部三次创作）中的整体感受，完成以下评估。' }}
-            </p>
-
             <div class="space-y-4">
                 <div v-for="(q, idx) in midtestQuestions" :key="'mid'+idx" class="bg-gray-50 p-5 rounded-xl">
                     <p class="font-semibold mb-3">{{idx + 1}}. {{ q }}</p>
@@ -158,17 +210,9 @@
                     </div>
                 </div>
             </div>
-
             <div class="bg-slate-50 p-8 rounded-2xl border-2 border-slate-100 flex flex-col items-center">
                 <h3 class="font-bold text-lg mb-2">核心情绪锚定 (Affect Grid)</h3>
-                <p class="text-sm text-gray-500 mb-6 text-center">请在下方的 9x9 方格中点击一个最能代表您情绪状态的位置。<br>水平方向代表<span class="font-bold text-blue-600">愉悦度</span> (左=极度不快, 右=极度愉悦)，垂直方向代表<span class="font-bold text-red-500">唤醒度</span> (上=极度兴奋, 下=极度平静)。</p>
-
-                <div class="relative w-[360px] h-[360px]">
-                    <span class="absolute -top-6 left-1/2 -translate-x-1/2 text-sm font-bold text-red-500">极度兴奋 (高唤醒)</span>
-                    <span class="absolute -bottom-6 left-1/2 -translate-x-1/2 text-sm font-bold text-blue-500">极度平静 (低唤醒)</span>
-                    <span class="absolute top-1/2 -left-24 -translate-y-1/2 text-sm font-bold text-gray-600">极度不快<br>(负效价)</span>
-                    <span class="absolute top-1/2 -right-24 -translate-y-1/2 text-sm font-bold text-gray-600 text-right">极度愉悦<br>(正效价)</span>
-
+                <div class="relative w-[360px] h-[360px] mt-6">
                     <div class="w-full h-full grid grid-cols-9 grid-rows-9 border-2 border-gray-800 bg-white shadow-inner">
                         <template v-for="row in 9" :key="'r'+row">
                             <div v-for="col in 9" :key="'c'+col"
@@ -180,32 +224,24 @@
                     </div>
                 </div>
             </div>
-
             <div v-if="stage === 'posttest'" class="space-y-6 pt-6 border-t-2 border-dashed">
-                <h3 class="font-bold text-xl text-center text-blue-900 mb-4">主观体验深访 (Open Questions)</h3>
                 <div v-for="(q, idx) in posttestOpenQuestions" :key="'post_open'+idx">
                     <p class="font-bold mb-2">{{idx + 1}}. {{ q }}</p>
                     <textarea v-model="postAnswers.open[idx]" class="w-full border-2 border-gray-200 rounded-lg p-4 h-32 focus:border-blue-500 outline-none resize-none"></textarea>
                 </div>
             </div>
         </div>
-
         <div class="mt-4 pt-4 border-t text-center">
-            <button @click="submitTest" class="bg-indigo-600 text-white px-16 py-4 rounded-xl font-bold text-xl hover:bg-indigo-700 shadow-[0_10px_20px_rgba(79,70,229,0.3)] transition transform hover:-translate-y-1">
-                {{ stage === 'midtest' ? '提交量表并进入下阶段' : '提交最终问卷并完成实验' }}
-            </button>
+            <button @click="submitTest" class="bg-indigo-600 text-white px-16 py-4 rounded-xl font-bold text-xl hover:bg-indigo-700 shadow-lg">提交进入下阶段</button>
         </div>
     </div>
 
-    <div v-if="stage === 'rest'" class="bg-slate-900 p-16 rounded-[3rem] shadow-2xl text-center w-[600px] border border-slate-700">
+    <div v-if="stage === 'rest'" class="bg-slate-900 p-16 rounded-[3rem] shadow-2xl text-center w-[600px]">
         <h2 class="text-4xl font-bold text-emerald-400 mb-4 tracking-widest">大脑洗脱期 (REST)</h2>
-        <p class="text-slate-300 mb-8 text-lg">请闭上眼睛，深呼吸，彻底清空上一项任务的思绪。</p>
         <p class="text-7xl font-mono text-white tracking-widest drop-shadow-[0_0_15px_rgba(52,211,153,0.8)]">{{ formatTime(restTimer) }}</p>
     </div>
-
     <div v-if="stage === 'done'" class="text-center">
         <h1 class="text-6xl font-bold text-blue-900 mb-6 tracking-tighter">🎉 实验圆满完成</h1>
-        <p class="text-2xl text-gray-600">感谢您的参与。数据已成功打包入库。</p>
     </div>
 
 </div>
@@ -215,31 +251,30 @@
 
     createApp({
         setup() {
-            // 状态机流转
-            const stage = ref('setup'); // setup -> baseline_wait/pretest -> ica_review -> task -> midtest -> rest -> ... -> posttest -> done
+            const stage = ref('setup');
+            const config = ref({ sub_id: '', group: 3, theme: '1. 整合信息理论 (IIT)' });
+            const currentTaskIdx = ref(0);
 
-            // 实验配置与倒计时
-            const config = ref({ sub_id: '', group: 1 });
-            const currentTaskIdx = ref(0); // 0, 1, 2
-
-            const baselineTimer = ref(180); // 3 分钟 (180s)
-            const taskTimer = ref(900);     // 15 分钟 (900s)
-            const restTimer = ref(120);     // 2 分钟 (120s)
+            const baselineTimer = ref(180);
+            const taskTimer = ref(900);
+            const restTimer = ref(120);
 
             let timerInterval = null;
             let ws = null;
-            let lastTypeTime = Date.now();
-            let state0Triggered = false; // 控制干预颜色
 
-            // 数据大仓：行为与生理日志
+            let lastTypeTime = Date.now();
+            let behaviorCheckInterval = null;
+            const isState0 = ref(false);
+
             const icaImageUrl = ref('');
             const icaExcludes = ref('');
             const texts = ref(['', '', '']);
             const keyLogs = ref([[], [], []]);
             const chats = ref([[], [], []]);
             const chatInput = ref('');
+            const envHighlightText = ref('');
 
-            // --- 问卷字典区 (原版无删改) ---
+            // 绝对完整的问卷原题
             const pretestDone = ref(false);
             const pretestQuestions = [
                 "我认为自己具备运用创意解决复杂写作难题的能力。","我认为自己擅长构思新颖独特的情节或设定。","我善于在他人已有想法的基础上，作进一步的拓展与深化。",
@@ -260,19 +295,11 @@
                 "对我而言，这项小说构思任务是非常困难的。",
                 "完成这项创作任务让我感到筋疲力尽。"
             ];
-
-            // 存放三次中测的数据
             const midAnswers = ref([
                 { likert: Array(6).fill(null), grid_x: null, grid_y: null },
                 { likert: Array(6).fill(null), grid_x: null, grid_y: null },
                 { likert: Array(6).fill(null), grid_x: null, grid_y: null }
             ]);
-
-            // 后测存放区
-            const postAnswers = ref({
-                likert: Array(6).fill(null), grid_x: null, grid_y: null,
-                open: ["", "", "", ""]
-            });
 
             const posttestOpenQuestions = [
                 "在三次创作过程中，您是否感觉到某一次或某几次任务进行得特别流畅（即产生了“心流”体验）？或者特别卡顿（即产生了“认知枯竭”）？请描述您当时的主观感受。",
@@ -280,68 +307,63 @@
                 "比较三次不同人物遭遇的构思过程，您觉得最困难的是哪一次？为什么？",
                 "关于本系统的使用体验或本次实验的设计，您有任何其他想分享的反馈或建议吗？"
             ];
+            const postAnswers = ref({ likert: Array(6).fill(null), grid_x: null, grid_y: null, open: ["", "", "", ""] });
 
-            // --- 工具函数 ---
-            const formatTime = (secs) => {
-                const m = Math.floor(secs / 60);
-                const s = secs % 60;
-                return `${m.toString().padStart(2, '0')}:${s.toString().padStart(2, '0')}`;
+            // 剧场UI样式映射
+            const getRoleName = (role) => {
+                const map = { 'rational': '绝对理性者', 'humanist': '人文关怀者', 'creative': '天马行空者', 'user': '作者 (你)', 'system': '环境主脑' };
+                return map[role] || 'AI';
+            };
+            const getRoleIcon = (role) => {
+                const map = { 'rational': '📐', 'humanist': '☕', 'creative': '🚀', 'user': '👤', 'system': '🌌' };
+                return map[role] || '🤖';
+            };
+            const getRoleColor = (role) => {
+                const map = {
+                    'rational': { bg: 'bg-blue-100 border border-blue-200 text-blue-900 rounded-tl-none', text: 'text-blue-600' },
+                    'humanist': { bg: 'bg-orange-100 border border-orange-200 text-orange-900 rounded-tl-none', text: 'text-orange-600' },
+                    'creative': { bg: 'bg-purple-100 border border-purple-200 text-purple-900 rounded-tl-none', text: 'text-purple-600' },
+                    'user': { bg: 'bg-slate-700 text-white rounded-tr-none', text: 'text-slate-500' },
+                    'system': { bg: 'bg-emerald-100 border border-emerald-200 text-emerald-900 rounded-tl-none', text: 'text-emerald-600' }
+                };
+                return map[role] || { bg: 'bg-gray-100', text: 'text-gray-600' };
             };
 
-            const getCurrentTestRef = () => {
-                return stage.value === 'midtest' ? midAnswers.value[currentTaskIdx.value] : postAnswers.value;
-            };
+            const formatTime = (secs) => `${Math.floor(secs / 60).toString().padStart(2, '0')}:${(secs % 60).toString().padStart(2, '0')}`;
+            const getCurrentTestRef = () => stage.value === 'midtest' ? midAnswers.value[currentTaskIdx.value] : postAnswers.value;
+            const selectAffectGrid = (x, y) => { const tr = getCurrentTestRef(); tr.grid_x = x; tr.grid_y = y; };
 
-            const selectAffectGrid = (x, y) => {
-                const tr = getCurrentTestRef();
-                tr.grid_x = x;
-                tr.grid_y = y;
-            };
-
-            // --- 阶段流转控制 ---
             const startBaseline = async () => {
-                if (!config.value.sub_id) return alert("必填：被试编号！");
+                if (!config.value.sub_id) return alert("被试编号必填！");
                 stage.value = 'baseline_wait';
                 baselineTimer.value = 180;
 
                 timerInterval = setInterval(() => {
                     baselineTimer.value--;
-                    if (baselineTimer.value <= 0) {
-                        clearInterval(timerInterval);
-                        checkBaselineToICA();
-                    }
+                    if (baselineTimer.value <= 0) { clearInterval(timerInterval); checkBaselineToICA(); }
                 }, 1000);
 
-                // 发送后端录制基线
                 const res = await fetch('http://127.0.0.1:8000/api/start_baseline', {
-                    method: 'POST',
-                    headers: {'Content-Type': 'application/json'},
-                    body: JSON.stringify({ sub_id: config.value.sub_id, group: config.value.group, task_id: 0 })
+                    method: 'POST', headers: {'Content-Type': 'application/json'},
+                    body: JSON.stringify(config.value)
                 }).then(r => r.json());
-
                 icaImageUrl.value = 'http://127.0.0.1:8000' + res.image_url;
             };
 
             const submitPretest = () => {
-                if (pretestAnswers.value.includes(null)) {
-                    if (!confirm("您还有题目未答完，确定要强制提交吗？")) return;
-                }
+                if(pretestAnswers.value.includes(null) && !confirm("未答完，强行提交？")) return;
                 pretestDone.value = true;
                 checkBaselineToICA();
             };
 
             const checkBaselineToICA = () => {
-                if (baselineTimer.value <= 0 && pretestDone.value) {
-                    stage.value = 'ica_review';
-                } else if (stage.value === 'pretest' && baselineTimer.value > 0) {
-                    stage.value = 'baseline_wait'; // 前测做完，但基线没录完，回去等
-                }
+                if (baselineTimer.value <= 0 && pretestDone.value) stage.value = 'ica_review';
+                else if (stage.value === 'pretest' && baselineTimer.value > 0) stage.value = 'baseline_wait';
             };
 
             const submitICAAndStartTask = async () => {
                 await fetch('http://127.0.0.1:8000/api/submit_ica', {
-                    method: 'POST',
-                    headers: {'Content-Type': 'application/json'},
+                    method: 'POST', headers: {'Content-Type': 'application/json'},
                     body: JSON.stringify({ exclude_indices: icaExcludes.value })
                 });
                 startMainTask();
@@ -349,62 +371,38 @@
 
             const startMainTask = () => {
                 stage.value = 'task';
-                taskTimer.value = 900; // 15 mins
-                document.body.style.setProperty('--app-bg-color', '#f8fafc'); // 重置背景
+                taskTimer.value = 900;
+                lastTypeTime = Date.now();
+                isState0.value = false;
 
+                resetEnvironment();
                 if (currentTaskIdx.value === 0) initWebSocket();
+                startBehaviorTracker();
 
                 timerInterval = setInterval(() => {
                     taskTimer.value--;
                     if (taskTimer.value <= 0) {
                         clearInterval(timerInterval);
+                        clearInterval(behaviorCheckInterval);
                         stage.value = 'midtest';
                     }
                 }, 1000);
             };
 
-            const submitTest = async () => {
-                const tr = getCurrentTestRef();
-                if (tr.likert.includes(null) || !tr.grid_x) {
-                    if(!confirm("表单未填完整，强制跳过吗？")) return;
-                }
-
-                if (stage.value === 'midtest') {
-                    if (currentTaskIdx.value < 2) {
-                        // 进入洗脱期
-                        stage.value = 'rest';
-                        restTimer.value = 120; // 2 mins
-                        document.body.style.setProperty('--app-bg-color', '#0f172a'); // 变暗
-
-                        timerInterval = setInterval(() => {
-                            restTimer.value--;
-                            if (restTimer.value <= 0) {
-                                clearInterval(timerInterval);
-                                currentTaskIdx.value++;
-                                startMainTask();
-                            }
-                        }, 1000);
-                    } else {
-                        // 三次任务结束，直接跳后测
-                        stage.value = 'posttest';
-                    }
-                } else if (stage.value === 'posttest') {
-                    // 后测结束，打包大仓数据
-                    await saveUltimateData();
-                    stage.value = 'done';
-                }
-            };
-
-            // --- 记录仪与通信引擎 ---
             const logKey = (e) => {
                 if (['Shift', 'Control', 'Alt', 'Meta'].includes(e.key)) return;
                 lastTypeTime = Date.now();
                 keyLogs.value[currentTaskIdx.value].push({ key: e.key, time: lastTypeTime });
 
-                if (state0Triggered) {
-                    state0Triggered = false;
-                    document.body.style.setProperty('--app-bg-color', '#f8fafc'); // 颜色恢复
+                if (isState0.value) {
+                    isState0.value = false;
+                    resetEnvironment();
                 }
+            };
+
+            const startBehaviorTracker = () => {
+                if (behaviorCheckInterval) clearInterval(behaviorCheckInterval);
+                behaviorCheckInterval = setInterval(() => {}, 1000); // 仅做占位，实际由生理触发配合时间戳判定
             };
 
             const initWebSocket = () => {
@@ -414,16 +412,40 @@
                     if (stage.value !== 'task') return;
                     const data = JSON.parse(event.data);
 
-                    if (data.type === "chat_reply") {
-                        chats.value[currentTaskIdx.value].push({ role: 'ai', content: data.content });
+                    if (data.type === "physiological_alert" && config.value.group == 3) {
+                        const pauseTime = (Date.now() - lastTypeTime) / 1000;
+                        if (pauseTime >= 5.0 && !isState0.value) {
+                            isState0.value = true;
+                            ws.send(JSON.stringify({
+                                type: "trigger_theater_intervention",
+                                theme: config.value.theme,
+                                text: texts.value[currentTaskIdx.value]
+                            }));
+                        }
+                    }
+                    else if (data.type === "theater_actor_msg") {
+                        chats.value[currentTaskIdx.value].push({ role: data.role, content: data.content });
                         scrollToBottom();
-                    } else if (data.type === "intervention") {
-                        chats.value[currentTaskIdx.value].push({ role: 'ai', content: data.content });
-                        state0Triggered = true;
-                        document.body.style.setProperty('--app-bg-color', '#fee2e2'); // 枯竭变红
+                    }
+                    else if (data.type === "env_adjustment") {
+                        applyEnvironment(data.style);
+                    }
+                    else if (data.type === "chat_reply") {
+                        chats.value[currentTaskIdx.value].push({ role: 'humanist', content: data.content });
                         scrollToBottom();
                     }
                 };
+            };
+
+            const applyEnvironment = (style) => {
+                document.documentElement.style.setProperty('--env-bg', style.bg_color || '#f8fafc');
+                document.documentElement.style.setProperty('--env-color', style.text_color || '#334155');
+                document.documentElement.style.setProperty('--env-glow', style.glow_color || 'rgba(59, 130, 246, 0.0)');
+                envHighlightText.value = style.focus_keyword || '';
+            };
+            const resetEnvironment = () => {
+                applyEnvironment({ bg_color: '#f8fafc', text_color: '#334155', glow_color: 'rgba(0,0,0,0)', focus_keyword: '' });
+                envHighlightText.value = '';
             };
 
             const sendChat = () => {
@@ -434,45 +456,49 @@
                 scrollToBottom();
             };
 
-            const scrollToBottom = () => {
-                nextTick(() => {
-                    const el = document.getElementById('chat-container');
-                    if (el) el.scrollTop = el.scrollHeight;
-                });
+            const scrollToBottom = () => { nextTick(() => { const el = document.getElementById('chat-container'); if (el) el.scrollTop = el.scrollHeight; }); };
+
+            const submitTest = async () => {
+                const tr = getCurrentTestRef();
+                if ((tr.likert && tr.likert.includes(null)) || !tr.grid_x) {
+                    if(!confirm("表单未填完整，强行跳过？")) return;
+                }
+                if (stage.value === 'midtest') {
+                    if (currentTaskIdx.value < 2) {
+                        stage.value = 'rest';
+                        restTimer.value = 120;
+                        document.body.style.setProperty('--app-bg-color', '#0f172a');
+                        timerInterval = setInterval(() => {
+                            restTimer.value--;
+                            if (restTimer.value <= 0) { clearInterval(timerInterval); currentTaskIdx.value++; startMainTask(); }
+                        }, 1000);
+                    } else { stage.value = 'posttest'; }
+                } else if (stage.value === 'posttest') {
+                    await saveUltimateData();
+                    stage.value = 'done';
+                }
             };
 
             const saveUltimateData = async () => {
-                const payload = {
-                    metadata: config.value,
-                    pretest: pretestAnswers.value,
-                    tasks: []
-                };
+                const payload = { metadata: config.value, pretest: pretestAnswers.value, tasks: [] };
                 for(let i=0; i<3; i++){
                     payload.tasks.push({
-                        task_id: i + 1,
-                        final_text: texts.value[i],
-                        keystrokes: keyLogs.value[i],
-                        chat_log: chats.value[i],
-                        midtest: midAnswers.value[i]
+                        task_id: i + 1, final_text: texts.value[i], keystrokes: keyLogs.value[i],
+                        chat_log: chats.value[i], midtest: midAnswers.value[i]
                     });
                 }
                 payload.posttest = postAnswers.value;
-
                 await fetch('http://127.0.0.1:8000/api/save_experiment', {
-                    method: 'POST',
-                    headers: {'Content-Type': 'application/json'},
-                    body: JSON.stringify(payload)
+                    method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify(payload)
                 });
             };
 
             return {
                 stage, config, currentTaskIdx, baselineTimer, taskTimer, restTimer,
-                pretestDone, pretestQuestions, pretestAnswers,
-                midtestQuestions, midAnswers, posttestOpenQuestions, postAnswers,
-                icaImageUrl, icaExcludes, texts, chats, chatInput,
-                formatTime, getCurrentTestRef, selectAffectGrid,
-                startBaseline, submitPretest, submitICAAndStartTask, submitTest,
-                logKey, sendChat
+                pretestDone, pretestQuestions, pretestAnswers, midtestQuestions, midAnswers, posttestOpenQuestions, postAnswers,
+                icaImageUrl, icaExcludes, texts, chats, chatInput, isState0, envHighlightText,
+                formatTime, getCurrentTestRef, selectAffectGrid, getRoleName, getRoleIcon, getRoleColor,
+                startBaseline, submitPretest, submitICAAndStartTask, submitTest, logKey, sendChat
             };
         }
     }).mount('#app');
