@@ -53,6 +53,7 @@ def record_and_process(sub_id):
     os.makedirs(config_dir, exist_ok=True)
     fif_path = os.path.join(config_dir, f"{sub_id}_baseline_ica.fif")
     ica.save(fif_path, overwrite=True)
+
     # 5. 画出 8x3 诊断面板图
     sources = ica.get_sources(raw)
     ic_data = sources.get_data()
