@@ -24,7 +24,7 @@ except ImportError as e:
 # ================= 🌟 核心配置区 🌟 =================
 DEVICE_IP = '127.0.0.1'  # 你的博睿康主机 IP (本机测试填 127.0.0.1)
 PORT = 8712  # 默认端口
-NUM_CHANNELS = 65  # 脑电帽真实通道数 (如需修改请按实际填)
+NUM_CHANNELS = 8  # 脑电帽真实通道数 (如需修改请按实际填)
 SAMPLING_RATE = 1000  # 采样率
 BUFFER_TIME = 3  # 官方默认的 3 秒缓存池
 

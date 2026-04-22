@@ -3,11 +3,12 @@ import joblib
 import numpy as np
 import pandas as pd
 import mne
-from mne_icalabel import label_components
+import json
+import requests
 import neurokit2 as nk
 from scipy.stats import entropy
 from scipy.ndimage import binary_closing
-from pylsl import resolve_stream, StreamInlet
+from pylsl import resolve_byprop, StreamInlet
 import warnings
 
 # ================= 0. 环境补丁与配置 =================
@@ -16,59 +17,62 @@ if not hasattr(np, 'float'): np.float = float
 if not hasattr(np, 'int'): np.int = int
 if not hasattr(np, 'trapz'): np.trapz = np.trapezoid
 
-WINDOW_SIZE_SEC = 60.0  # 核心：保留 60 秒完整长窗口
-STEP_SIZE_SEC = 5.0  # 步长：每隔 5 秒更新一次状态 (60秒数据滑动 5秒)
-BEST_THRESHOLD = 0.42  # 总冠军触发阈值
+WINDOW_SIZE_SEC = 60.0
+STEP_SIZE_SEC = 5.0
+BEST_THRESHOLD = 0.42
 
 EEG_SFREQ = 1000
 PHYSIO_SFREQ = 1000
-ET_SFREQ = 1200  # 假设眼动仪为 1200Hz
+ET_SFREQ = 1200
 
-# ================= 1. 唤醒模型武器库 =================
+# ================= 1. 唤醒模型武器库与手动 ICA 配置 =================
 print("🧠 正在唤醒 A-Gentle AI 引擎...")
 live_model = joblib.load('agentle_lgbm_champion.pkl')
 live_scaler = joblib.load('agentle_scaler.pkl')
 expected_features = joblib.load('agentle_features.pkl')
-print(f"✅ 模型加载完毕！严格要求对齐 {len(expected_features)} 个特征。")
+
+# 🚀 加载手动 ICA 拼图
+try:
+    # 加载基线生成的 ICA 模型 (注意路径需指向 backend 目录)
+    base_ica = mne.preprocessing.read_ica('../backend/agentle_baseline_ica.fif')
+    # 加载前端保存的手动剔除黑名单
+    with open('../backend/ica_config.json', 'r') as f:
+        manual_config = json.load(f)
+        manual_excludes = manual_config.get('manual_excludes', [])
+    print(f"✅ 手动 ICA 配置加载成功！封印索引: {manual_excludes}")
+except Exception as e:
+    print(f"⚠️ ICA 配置加载失败 (可能是文件未生成)，将不执行 ICA 去噪: {e}")
+    base_ica = None
+    manual_excludes = []
+
+print(f"✅ 系统就绪！要求对齐 {len(expected_features)} 个特征。")
 
 
-# ================= 2. 实时预处理 (复刻 Stage A & B) =================
+# ================= 2. 实时预处理 (手动排雷版) =================
 def preprocess_eeg_realtime(eeg_data_60s):
     """
-    接收 60 秒的脑电数据，执行陷波、带通、以及 ICA 自动去噪。
-    eeg_data_60s 形状: [8, 60000]
+    接收 60 秒数据，应用基线期的 ICA 矩阵和手动黑名单。
     """
     ch_names = ['AF3', 'AF4', 'F3', 'F1', 'Fz', 'F2', 'F4', 'Pz']
     info = mne.create_info(ch_names=ch_names, sfreq=EEG_SFREQ, ch_types='eeg')
-
-    # 动态构建 MNE Raw 对象
     raw = mne.io.RawArray(eeg_data_60s, info, verbose=False)
-    montage = mne.channels.make_standard_montage('standard_1020')
-    raw.set_montage(montage, on_missing='ignore')
 
-    # 陷波与带通
+    # 基础滤波
     raw.notch_filter(freqs=50.0, fir_design='firwin', verbose=False)
     raw.filter(l_freq=1.0, h_freq=45.0, fir_design='firwin', verbose=False)
 
-    # ICA 自动清洗
-    try:
-        ica = mne.preprocessing.ICA(n_components=8, method='picard', fit_params=dict(extended=True), random_state=97)
-        ica.fit(raw, decim=10, verbose=False)
-        ic_labels = label_components(raw, ica, method='iclabel')
-
-        bad_components = [idx for idx, label in enumerate(ic_labels['labels'])
-                          if label in ['eye', 'muscle', 'channel noise', 'line noise', 'heart']]
-        ica.exclude = bad_components
-        clean_raw = ica.apply(raw.copy(), verbose=False)
-
-        return clean_raw.get_data()  # 返回清洗后的 [8, 60000] 矩阵
-    except Exception as e:
-        print(f"⚠️ 实时 ICA 清洗失败，退化为仅带通滤波: {e}")
-        return raw.get_data()
+    # 🚀 应用手动排雷结果 (不再实时 fit)
+    if base_ica is not None:
+        try:
+            clean_raw = base_ica.apply(raw.copy(), exclude=manual_excludes, verbose=False)
+            return clean_raw.get_data()
+        except Exception as e:
+            print(f"⚠️ ICA 应用异常: {e}")
+            return raw.get_data()
+    return raw.get_data()
 
 
-# ================= 3. 核心特征提取 (原汁原味复刻) =================
-# [为保持原样，以下四个函数直接复制你提供的原代码，无任何逻辑修改]
+# ================= 3. 核心特征提取 (保持原样) =================
 
 def get_eeg_features_full_stream(eeg_raw):
     feat = {}
@@ -108,7 +112,6 @@ def get_ecg_features_robust_stream(ecg_data):
         cleaned = nk.ecg_clean(valid_ecg, sampling_rate=1000)
         peaks, info = nk.ecg_peaks(cleaned, sampling_rate=1000)
         peak_count = len(info['ECG_R_Peaks'])
-
         if 40 <= peak_count <= 150:
             hrv_df = nk.hrv(peaks, sampling_rate=1000)
             res = hrv_df.to_dict('records')[0]
@@ -152,16 +155,13 @@ def get_et_features_enhanced(et):
         events = nk.events_find(merged_suspect, threshold=0.5)
         blink_count = sum(1 for d in events.get('duration', []) if 60 <= d <= 720)
         feat['ET_Blink_Count'] = blink_count
-
         valid_mask = ~merged_suspect
         v_gx, v_gy = gx[valid_mask], gy[valid_mask]
         diff_mask = valid_mask[1:] & valid_mask[:-1]
         real_diffs = np.sqrt(np.diff(gx) ** 2 + np.diff(gy) ** 2)[diff_mask]
-
         if len(v_gx) > 500:
             moves = real_diffs[real_diffs > 1e-5]
             if len(moves) > 0: feat['ET_Saccade_Dist'] = np.mean(moves)
-
         hist, _, _ = np.histogram2d(v_gx, v_gy, bins=10, range=[[0, 1], [0, 1]])
         feat['ET_Gaze_Entropy'] = entropy(hist.flatten())
         feat['ET_Fix_Rate'] = (np.sum(real_diffs < 0.002) / len(gx)) * 100
@@ -177,9 +177,8 @@ def prepare_and_predict(features_dict):
     aligned_vector = []
     for feat_name in expected_features:
         if feat_name not in features_dict:
-            raise ValueError(f"🚨 灾难拦截：缺少特征 '{feat_name}'！")
-
-        # 处理可能出现的 NaN (用 0 填补，防止模型崩溃)
+            aligned_vector.append(0.0)  # 容错
+            continue
         val = features_dict[feat_name]
         aligned_vector.append(0.0 if np.isnan(val) else val)
 
@@ -193,21 +192,15 @@ def prepare_and_predict(features_dict):
 def start_online_inference():
     print("\n📡 正在局域网内寻找数据流...")
 
-    inlet_eeg = StreamInlet(resolve_stream('name', 'Neuracle_EEG')[0])
-    inlet_physio = StreamInlet(resolve_stream('name', 'Physio_NI6009')[0])
-    # 假设眼动仪的 LSL 流名称为 'EyeTracker'
-    inlet_et = StreamInlet(resolve_stream('name', 'EyeTracker')[0])
+    # 修复：使用 resolve_byprop 解决 ImportError
+    inlet_eeg = StreamInlet(resolve_byprop('name', 'Neuracle_EEG')[0])
+    inlet_physio = StreamInlet(resolve_byprop('name', 'Physio_NI6009')[0])
+    inlet_et = StreamInlet(resolve_byprop('name', 'EyeTracker')[0])
     print(f"✅ 成功锁定所有 LSL 流！准备收集第一个 60 秒...")
 
     eeg_buf, physio_buf, et_buf = [], [], []
-    eeg_win = int(WINDOW_SIZE_SEC * EEG_SFREQ)
-    physio_win = int(WINDOW_SIZE_SEC * PHYSIO_SFREQ)
-    et_win = int(WINDOW_SIZE_SEC * ET_SFREQ)
-
-    # 步长转化为样本数
-    eeg_step = int(STEP_SIZE_SEC * EEG_SFREQ)
-    physio_step = int(STEP_SIZE_SEC * PHYSIO_SFREQ)
-    et_step = int(STEP_SIZE_SEC * ET_SFREQ)
+    eeg_win, physio_win, et_win = int(WINDOW_SIZE_SEC * 1000), int(WINDOW_SIZE_SEC * 1000), int(WINDOW_SIZE_SEC * 1200)
+    eeg_step, physio_step, et_step = int(STEP_SIZE_SEC * 1000), int(STEP_SIZE_SEC * 1000), int(STEP_SIZE_SEC * 1200)
 
     while True:
         e_chunk, _ = inlet_eeg.pull_chunk(timeout=0.0)
@@ -218,37 +211,40 @@ def start_online_inference():
         if p_chunk: physio_buf.extend(p_chunk)
         if et_chunk: et_buf.extend(et_chunk)
 
-        # 只要三个池子都攒够了 60 秒，立刻触发一次推断！
         if len(eeg_buf) >= eeg_win and len(physio_buf) >= physio_win and len(et_buf) >= et_win:
+            t_start = time.time()
 
-            # 1. 切片提取过去 60 秒的数据
-            current_eeg_raw = np.array(eeg_buf[:eeg_win]).T  # 转为 [65, 60000]
-            current_physio = np.array(physio_buf[:physio_win]).T  # 转为 [2, 60000]
-            current_et = np.array(et_buf[:et_win])  # 眼动特征代码期望 [N, 通道数]
+            # 切片
+            current_eeg_raw = np.array(eeg_buf[:eeg_win]).T[:8, :]
+            current_physio = np.array(physio_buf[:physio_win]).T
+            current_et = np.array(et_buf[:et_win])
 
-            # 💡 假设脑电只需要前 8 个通道
-            current_eeg_raw = current_eeg_raw[:8, :]
-
-            # 2. 实时预处理 (MNE 滤波与 ICA)
+            # 预处理 (应用手动 ICA)
             cleaned_eeg = preprocess_eeg_realtime(current_eeg_raw)
 
-            # 3. 三路并发提取特征，合成最终字典
+            # 提取特征
             all_features = {}
             all_features.update(get_eeg_features_full_stream(cleaned_eeg))
-            # 假设 GSR 在通道 0，ECG 在通道 1
             all_features.update(get_gsr_features_stream_optimized(current_physio[0]))
             all_features.update(get_ecg_features_robust_stream(current_physio[1]))
             all_features.update(get_et_features_enhanced(current_et))
 
-            # 4. 终极模型推断
+            # 推断
             flow_prob = prepare_and_predict(all_features)
+            t_end = time.time()
 
             if flow_prob >= BEST_THRESHOLD:
-                print(f"[{time.strftime('%H:%M:%S')}] 🟢 心流状态 (Prob: {flow_prob:.2f})")
+                print(
+                    f"[{time.strftime('%H:%M:%S')}] 🟢 心流状态 (Prob: {flow_prob:.2f}) | 耗时: {t_end - t_start:.2f}s")
             else:
-                print(f"[{time.strftime('%H:%M:%S')}] 🔴 认知枯竭 (Prob: {flow_prob:.2f}) -> 准备干预！")
+                print(f"[{time.strftime('%H:%M:%S')}] 🔴 认知枯竭 (Prob: {flow_prob:.2f}) -> 触发干预报警！")
+                # 🔥 发送报警至后端
+                try:
+                    requests.post("http://127.0.0.1:8000/api/alert_depletion")
+                except:
+                    pass
 
-            # 5. 滑动窗口：丢弃最老的 STEP_SIZE_SEC（5秒）数据，等待新血注入
+            # 滑动窗口
             eeg_buf = eeg_buf[eeg_step:]
             physio_buf = physio_buf[physio_step:]
             et_buf = et_buf[et_step:]
