@@ -9,9 +9,14 @@ from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel
 from openai import AsyncOpenAI
 from datetime import datetime
+from fastapi.responses import FileResponse
 
 app = FastAPI()
-
+@app.get("/")
+async def get_index():
+    # 注意：如果你的目录结构是 AGentle/backend/main.py
+    # 而网页在 AGentle/frontend/index.html，则路径如下：
+    return FileResponse("../frontend/index.html")
 app.add_middleware(
     CORSMiddleware,
     allow_origins=["*"],
@@ -23,7 +28,7 @@ app.add_middleware(
 os.makedirs("static_plots", exist_ok=True)
 os.makedirs("experiment_data", exist_ok=True)
 app.mount("/static", StaticFiles(directory="static_plots"), name="static")
-
+app.mount("/frontend", StaticFiles(directory="../frontend"), name="frontend")
 # ==========================================
 # 大模型 (LLM) 引擎配置
 # ==========================================
