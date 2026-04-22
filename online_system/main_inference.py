@@ -11,9 +11,9 @@ from scipy.ndimage import binary_closing
 from pylsl import resolve_byprop, StreamInlet
 import warnings
 import os
-import joblib
-current_dir = os.path.dirname(os.path.abspath(__file__))
+import sys  # 👈 修改 1：必须导入 sys 以接收被试编号参数
 
+current_dir = os.path.dirname(os.path.abspath(__file__))
 
 # ================= 0. 环境补丁与配置 =================
 warnings.filterwarnings('ignore')
@@ -29,46 +29,48 @@ EEG_SFREQ = 1000
 PHYSIO_SFREQ = 1000
 ET_SFREQ = 1200
 
-# ================= 1. 唤醒模型武器库与手动 ICA 配置 =================
-print("🧠 正在唤醒 A-Gentle AI 引擎...")
-model_dir = os.path.join(current_dir, "..", "model")
+# ================= 1. 动态定位路径与加载配置 (核心修改区) =================
+# 👈 修改 2：接收从 backend/main.py 传过来的 sub_id
+sub_id = sys.argv[1] if len(sys.argv) > 1 else "Unknown"
+print(f"🧠 正在为被试 {sub_id} 唤醒 A-Gentle AI 引擎...")
 
-# ✅ 修改加载语句，使用组合后的路径
+model_dir = os.path.join(current_dir, "..", "model")
+# 👈 修改 3：定义指向 backend 下被试专属 config 的路径
+backend_config_dir = os.path.join(current_dir, "..", "backend", "experiment_data", sub_id, "config")
+
+# 加载模型
 live_model = joblib.load(os.path.join(model_dir, 'agentle_lgbm_champion.pkl'))
 live_scaler = joblib.load(os.path.join(model_dir, 'agentle_scaler.pkl'))
 expected_features = joblib.load(os.path.join(model_dir, 'agentle_features.pkl'))
 
-# 🚀 加载手动 ICA 拼图
+# 🚀 动态加载被试专属 ICA 拼图
 try:
-    # 加载基线生成的 ICA 模型 (注意路径需指向 backend 目录)
-    base_ica = mne.preprocessing.read_ica('../backend/agentle_baseline_ica.fif')
-    # 加载前端保存的手动剔除黑名单
-    with open('../backend/ica_config.json', 'r') as f:
+    fif_path = os.path.join(backend_config_dir, f"{sub_id}_baseline_ica.fif")
+    json_path = os.path.join(backend_config_dir, f"{sub_id}_ica_config.json")
+
+    # 加载基线生成的专属 ICA 模型
+    base_ica = mne.preprocessing.read_ica(fif_path)
+    # 加载该被试手动剔除的黑名单
+    with open(json_path, 'r', encoding='utf-8') as f:
         manual_config = json.load(f)
         manual_excludes = manual_config.get('manual_excludes', [])
-    print(f"✅ 手动 ICA 配置加载成功！封印索引: {manual_excludes}")
+    print(f"✅ 成功加载 {sub_id} 的专属配置！封印索引: {manual_excludes}")
 except Exception as e:
-    print(f"⚠️ ICA 配置加载失败 (可能是文件未生成)，将不执行 ICA 去噪: {e}")
+    print(f"⚠️ 未找到 {sub_id} 的专属配置，将不执行 ICA 去噪。错误详情: {e}")
     base_ica = None
     manual_excludes = []
 
 print(f"✅ 系统就绪！要求对齐 {len(expected_features)} 个特征。")
 
 
-# ================= 2. 实时预处理 (手动排雷版) =================
+# ================= 2. 实时预处理 (逻辑保持原样) =================
 def preprocess_eeg_realtime(eeg_data_60s):
-    """
-    接收 60 秒数据，应用基线期的 ICA 矩阵和手动黑名单。
-    """
     ch_names = ['AF3', 'AF4', 'F3', 'F1', 'Fz', 'F2', 'F4', 'Pz']
     info = mne.create_info(ch_names=ch_names, sfreq=EEG_SFREQ, ch_types='eeg')
     raw = mne.io.RawArray(eeg_data_60s, info, verbose=False)
-
-    # 基础滤波
     raw.notch_filter(freqs=50.0, fir_design='firwin', verbose=False)
     raw.filter(l_freq=1.0, h_freq=45.0, fir_design='firwin', verbose=False)
 
-    # 🚀 应用手动排雷结果 (不再实时 fit)
     if base_ica is not None:
         try:
             clean_raw = base_ica.apply(raw.copy(), exclude=manual_excludes, verbose=False)
@@ -77,7 +79,6 @@ def preprocess_eeg_realtime(eeg_data_60s):
             print(f"⚠️ ICA 应用异常: {e}")
             return raw.get_data()
     return raw.get_data()
-
 
 # ================= 3. 核心特征提取 (保持原样) =================
 
