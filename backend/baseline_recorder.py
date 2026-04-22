@@ -3,22 +3,23 @@ import time
 import numpy as np
 import mne
 import matplotlib
-
-matplotlib.use('Agg')  # 关键：无头模式，不在屏幕弹窗，直接存图片
 import matplotlib.pyplot as plt
-from pylsl import resolve_stream, StreamInlet
+from pylsl import resolve_byprop, StreamInlet
+import os
 
-
+plt.rcParams['font.sans-serif'] = ['SimHei']
+plt.rcParams['axes.unicode_minus'] = False
+matplotlib.use('Agg')  # 关键：无头模式，不在屏幕弹窗，直接存图片
 def record_and_process(sub_id):
     print(f"🎬 开始为 {sub_id} 录制 3 分钟基线数据...")
 
     # 1. 寻找 LSL 流
-    streams = resolve_stream('name', 'Neuracle_EEG')
+    streams = resolve_byprop('name', 'Neuracle_EEG')
     inlet = StreamInlet(streams[0])
     sfreq = int(inlet.info().nominal_srate())
 
     # 2. 收集 3 分钟 (180秒) 数据
-    duration = 180
+    duration = 10
     target_samples = duration * sfreq
     eeg_buffer = []
 
@@ -48,8 +49,10 @@ def record_and_process(sub_id):
     # 4. 拟合 ICA 并保存模型（供实时阶段使用）
     ica = mne.preprocessing.ICA(n_components=8, method='picard', fit_params=dict(extended=True), random_state=97)
     ica.fit(raw, decim=10, verbose=False)
-    ica.save('agentle_baseline_ica.fif', overwrite=True)
-
+    config_dir = os.path.join("experiment_data", sub_id, "config")
+    os.makedirs(config_dir, exist_ok=True)
+    fif_path = os.path.join(config_dir, f"{sub_id}_baseline_ica.fif")
+    ica.save(fif_path, overwrite=True)
     # 5. 画出 8x3 诊断面板图
     sources = ica.get_sources(raw)
     ic_data = sources.get_data()
@@ -85,10 +88,12 @@ def record_and_process(sub_id):
         ax_wave.plot(time_seg, ic_data[i, start_idx:end_idx], color='k', linewidth=0.8)
         ax_wave.set_title(f'成分 {i} 时域波形 (中间 20s)', fontsize=14)
 
+    save_path = os.path.join(os.getcwd(), 'static_plots', 'current_ica.png')
+    fig.savefig(save_path, bbox_inches='tight', dpi=150)
+
     # 保存图片给前端读取
-    fig.savefig('static_plots/current_ica.png', bbox_inches='tight', dpi=150)
     plt.close(fig)
-    print("🎉 基线处理完成，ICA图已生成！")
+    print(f"🎉 基线处理完成，ICA图已生成在: {save_path}")
 
 
 if __name__ == "__main__":

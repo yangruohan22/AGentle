@@ -1,22 +1,23 @@
 import asyncio
 import json
-import os
 import re
 import subprocess
 from fastapi import FastAPI, WebSocket, WebSocketDisconnect
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
+from fastapi.responses import FileResponse
 from pydantic import BaseModel
 from openai import AsyncOpenAI
 from datetime import datetime
-from fastapi.responses import FileResponse
+import os
+
+# 获取当前 backend 文件夹的绝对路径
+current_dir = os.path.dirname(os.path.abspath(__file__))
+static_path = os.path.join(current_dir, "static_plots")
+os.makedirs(static_path, exist_ok=True)
 
 app = FastAPI()
-@app.get("/")
-async def get_index():
-    # 注意：如果你的目录结构是 AGentle/backend/main.py
-    # 而网页在 AGentle/frontend/index.html，则路径如下：
-    return FileResponse("../frontend/index.html")
+
 app.add_middleware(
     CORSMiddleware,
     allow_origins=["*"],
@@ -27,8 +28,9 @@ app.add_middleware(
 
 os.makedirs("static_plots", exist_ok=True)
 os.makedirs("experiment_data", exist_ok=True)
-app.mount("/static", StaticFiles(directory="static_plots"), name="static")
-app.mount("/frontend", StaticFiles(directory="../frontend"), name="frontend")
+
+app.mount("/static", StaticFiles(directory=static_path), name="static")
+
 # ==========================================
 # 大模型 (LLM) 引擎配置
 # ==========================================
@@ -41,7 +43,7 @@ active_websockets = []
 class SetupData(BaseModel):
     sub_id: str
     group: int
-    task_id: int
+    # task_id: int # 去除必填限制以兼容前端
 
 
 @app.post("/api/start_baseline")
@@ -55,24 +57,68 @@ async def start_baseline(data: SetupData):
 
 
 class ICAExcludes(BaseModel):
+    sub_id: str
     exclude_indices: str
 
 
 @app.post("/api/submit_ica")
 async def submit_ica(data: ICAExcludes):
     indices = [int(x.strip()) for x in data.exclude_indices.split(",") if x.strip()]
-    with open("ica_config.json", "w", encoding="utf-8") as f:
+
+    # ✅ 修改：保存到被试专属文件夹
+    config_dir = f"experiment_data/{data.sub_id}/config"
+    os.makedirs(config_dir, exist_ok=True)
+    config_path = f"{config_dir}/{data.sub_id}_ica_config.json"
+
+    with open(config_path, "w", encoding="utf-8") as f:
         json.dump({"manual_excludes": indices}, f, ensure_ascii=False)
     return {"status": "success"}
 
+class InferenceRequest(BaseModel):
+    sub_id: str
+# ================= 新增：一键启动推断引擎 =================
+@app.post("/api/start_inference")
+async def start_inference(data: InferenceRequest):
+    print(f"[{datetime.now().strftime('%H:%M:%S')}] 🧠 为被试 {data.sub_id} 启动心流探测引擎...")
+    try:
+        cwd_path = os.path.abspath(os.path.join(os.path.dirname(__file__), '..', 'online_system'))
+        # ✅ 将 sub_id 作为参数传给 main_inference.py
+        subprocess.Popen(["python", "main_inference.py", data.sub_id], cwd=cwd_path)
+        return {"status": "success"}
+    except Exception as e:
+        print(f"启动失败: {e}")
+        return {"status": "error"}
 
+# ================= 修改：分类保存实验数据 =================
 @app.post("/api/save_experiment")
 async def save_experiment(payload: dict):
     sub_id = payload.get("metadata", {}).get("sub_id", "UnknownSub")
-    file_path = f"experiment_data/{sub_id}_UltimateLog.json"
-    with open(file_path, "w", encoding="utf-8") as f:
+    base_dir = f"experiment_data/{sub_id}"
+
+    os.makedirs(f"{base_dir}/questionnaires", exist_ok=True)
+    os.makedirs(f"{base_dir}/behavior", exist_ok=True)
+    os.makedirs(f"{base_dir}/text_output", exist_ok=True)
+    os.makedirs(f"{base_dir}/chat_logs", exist_ok=True)
+
+    with open(f"{base_dir}/questionnaires/survey_results.json", "w", encoding="utf-8") as f:
+        json.dump({
+            "pretest": payload.get("pretest"),
+            "posttest": payload.get("posttest"),
+            "tasks_midtest": [t.get("midtest") for t in payload.get("tasks", [])]
+        }, f, ensure_ascii=False, indent=2)
+
+    for idx, task in enumerate(payload.get("tasks", [])):
+        with open(f"{base_dir}/text_output/task_{idx + 1}_story.txt", "w", encoding="utf-8") as f:
+            f.write(task.get("final_text", ""))
+        with open(f"{base_dir}/behavior/task_{idx + 1}_keystrokes.json", "w", encoding="utf-8") as f:
+            json.dump(task.get("keystrokes", []), f, ensure_ascii=False, indent=2)
+        with open(f"{base_dir}/chat_logs/task_{idx + 1}_chats.json", "w", encoding="utf-8") as f:
+            json.dump(task.get("chat_log", []), f, ensure_ascii=False, indent=2)
+
+    with open(f"{base_dir}/{sub_id}_UltimateLog.json", "w", encoding="utf-8") as f:
         json.dump(payload, f, ensure_ascii=False, indent=2)
-    print(f"🎉 实验数据归档至: {file_path}")
+
+    print(f"🎉 实验数据分类归档至: {base_dir}/")
     return {"status": "success"}
 
 
@@ -162,7 +208,7 @@ async def websocket_endpoint(websocket: WebSocket):
                 await websocket.send_json({"type": "chat_reply", "content": resp.choices[0].message.content.strip()})
 
             # ----------------------------------------------------
-            # 组 3 的多智能体串行争论逻辑 (小剧场)
+            # 组 3 的多智能体串行争论逻辑 (小剧场) -> 完整恢复版本
             # ----------------------------------------------------
             elif msg_type == "trigger_theater_intervention":
                 theme = payload.get("theme", "")
@@ -215,6 +261,14 @@ async def websocket_endpoint(websocket: WebSocket):
         if websocket in active_websockets:
             active_websockets.remove(websocket)
         print(f"WS Exception: {e}")
+
+# --- 核心：挂载前端静态资源 ---
+@app.get("/")
+async def get_index():
+    return FileResponse("../frontend/index.html")
+
+
+app.mount("/", StaticFiles(directory="../frontend"), name="frontend_assets")
 
 
 if __name__ == "__main__":

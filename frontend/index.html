@@ -3,8 +3,8 @@
 <head>
     <meta charset="UTF-8">
     <title>A-Gentle 实验平台</title>
-    <script src="vue.js"></script>
-    <script src="tailwind.js"></script>
+    <script src="https://unpkg.com/vue@3/dist/vue.global.js"></script>
+    <script src="https://cdn.tailwindcss.com"></script>
     <style>
         :root {
             /* 默认环境样式 */
@@ -13,9 +13,12 @@
             --env-glow: rgba(59, 130, 246, 0.0);
             --app-bg-color: #e2e8f0;
         }
+        /* 修复页面无法滑动：删除了 overflow-hidden，允许 Y 轴滚动 */
         body {
             background-color: var(--app-bg-color);
             transition: background-color 2s ease-in-out;
+            overflow-y: auto;
+            min-height: 100vh;
         }
         ::-webkit-scrollbar { width: 6px; }
         ::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 3px; }
@@ -43,11 +46,25 @@
         @keyframes fadeIn { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
     </style>
 </head>
-<body class="antialiased h-screen overflow-hidden text-gray-800">
+<body class="antialiased text-gray-800 flex justify-center py-12">
 
-<div id="app" class="h-full w-full flex items-center justify-center p-8">
+<div id="app" class="w-full max-w-7xl px-4 flex flex-col items-center relative">
 
-    <div v-if="stage === 'setup'" class="bg-white p-10 rounded-2xl shadow-2xl w-[450px]">
+    <div class="fixed top-4 left-4 z-50 bg-white/90 backdrop-blur border border-blue-200 p-3 rounded-xl shadow-lg flex gap-3 text-sm items-center">
+        <span class="font-bold text-blue-900">🕹️ 测试大厅:</span>
+        <button @click="stage='setup'" class="hover:bg-blue-100 px-2 py-1 rounded transition">初始化</button>
+        <button @click="stage='pretest'" class="hover:bg-blue-100 px-2 py-1 rounded transition">前测</button>
+        <button @click="stage='ica_review'" class="hover:bg-blue-100 px-2 py-1 rounded transition">排雷</button>
+        <div class="w-px h-4 bg-gray-300"></div>
+        <button @click="stage='task'; currentTaskIdx=0" class="hover:bg-blue-100 px-2 py-1 rounded transition font-bold text-blue-700">任1</button>
+        <button @click="stage='task'; currentTaskIdx=1" class="hover:bg-blue-100 px-2 py-1 rounded transition font-bold text-blue-700">任2</button>
+        <button @click="stage='task'; currentTaskIdx=2" class="hover:bg-blue-100 px-2 py-1 rounded transition font-bold text-blue-700">任3</button>
+        <div class="w-px h-4 bg-gray-300"></div>
+        <button @click="stage='midtest'" class="hover:bg-blue-100 px-2 py-1 rounded transition">中测</button>
+        <button @click="stage='posttest'" class="hover:bg-blue-100 px-2 py-1 rounded transition">后测</button>
+    </div>
+
+    <div v-if="stage === 'setup'" class="bg-white p-10 rounded-2xl shadow-2xl w-[450px] mt-10">
         <h1 class="text-3xl font-bold mb-8 text-center text-blue-900">实验初始化</h1>
         <div class="space-y-5">
             <div>
@@ -68,7 +85,7 @@
         </div>
     </div>
 
-    <div v-if="stage === 'baseline_wait'" class="bg-white p-12 rounded-2xl shadow-xl text-center w-[500px]">
+    <div v-if="stage === 'baseline_wait'" class="bg-white p-12 rounded-2xl shadow-xl text-center w-[500px] mt-10">
         <div class="animate-pulse mb-6">
             <div class="w-24 h-24 bg-blue-100 rounded-full flex items-center justify-center mx-auto">
                 <span class="text-4xl">🧘</span>
@@ -89,12 +106,12 @@
         </div>
     </div>
 
-    <div v-if="stage === 'pretest'" class="bg-white p-10 rounded-2xl shadow-2xl w-[900px] h-[90vh] flex flex-col">
+    <div v-if="stage === 'pretest'" class="bg-white p-10 rounded-2xl shadow-2xl w-[900px] mt-4">
         <div class="flex justify-between items-center mb-6 border-b pb-4">
             <h2 class="text-2xl font-bold text-gray-800">前测问卷</h2>
             <span class="text-blue-600 font-mono bg-blue-50 px-3 py-1 rounded">基线倒计时: {{ formatTime(baselineTimer) }}</span>
         </div>
-        <div class="flex-1 overflow-y-auto pr-4 space-y-6">
+        <div class="space-y-6">
             <p class="text-gray-500 italic mb-4">请仔细阅读以下陈述，并选择最符合您实际情况的分数 (1=非常不同意, 7=非常同意)。</p>
             <div v-for="(q, idx) in pretestQuestions" :key="'pre'+idx" class="bg-gray-50 p-5 rounded-xl border border-gray-100 hover:shadow-md transition">
                 <p class="font-semibold mb-4">{{idx + 1}}. {{ q }}</p>
@@ -106,12 +123,12 @@
                 </div>
             </div>
         </div>
-        <div class="mt-6 pt-4 border-t text-center">
+        <div class="mt-8 pt-4 border-t text-center">
             <button @click="submitPretest" class="bg-green-600 text-white px-12 py-4 rounded-lg font-bold text-lg hover:bg-green-700 shadow-lg">提交并返回</button>
         </div>
     </div>
 
-    <div v-if="stage === 'ica_review'" class="bg-white p-8 rounded-2xl shadow-xl flex flex-col items-center max-w-4xl w-full">
+    <div v-if="stage === 'ica_review'" class="bg-white p-8 rounded-2xl shadow-xl flex flex-col items-center max-w-5xl w-full mt-4">
         <h2 class="text-3xl font-bold mb-2">任务准备区</h2>
         <p class="text-gray-500 mb-6">请发放世界观纸张供被试选择，并排查ICA伪迹。</p>
 
@@ -126,18 +143,27 @@
             </select>
         </div>
 
-        <img :src="icaImageUrl" class="h-[400px] border-2 border-gray-200 rounded mb-6 object-contain" alt="ICA 面板图" onerror="this.src='https://via.placeholder.com/800x400?text=Waiting+for+ICA+Plot...'">
+        <img :src="icaImageUrl" class="h-[500px] border-2 border-gray-200 rounded mb-6 object-contain" alt="ICA 面板图" onerror="this.src='https://via.placeholder.com/800x400?text=Waiting+for+ICA+Plot...'">
 
-        <div class="flex items-center gap-4 w-full justify-center bg-gray-50 p-4 rounded-lg">
-            <label class="font-bold">剔除ICA成分:</label>
-            <input v-model="icaExcludes" type="text" placeholder="如: 0,1" class="border-2 border-gray-300 p-2 rounded w-48 text-center text-lg focus:border-blue-500 outline-none">
-            <button @click="submitICAAndStartTask" class="bg-red-500 text-white px-8 py-3 rounded-lg font-bold hover:bg-red-600 shadow-md">
-                配置完成，正式开始任务 1
-            </button>
+        <div class="flex flex-col gap-6 w-full items-center bg-gray-50 p-6 rounded-lg">
+            <div class="flex items-center gap-4 w-full justify-center">
+                <label class="font-bold">剔除ICA成分:</label>
+                <input v-model="icaExcludes" type="text" placeholder="如: 0,1" class="border-2 border-gray-300 p-3 rounded w-48 text-center text-lg focus:border-blue-500 outline-none">
+            </div>
+
+            <div class="flex gap-4">
+                <button @click="startInferenceEngine" :class="['px-8 py-4 rounded-lg font-bold shadow-md transition', engineStarted ? 'bg-green-500 text-white' : 'bg-purple-600 text-white hover:bg-purple-700']">
+                    {{ engineStarted ? '✅ 引擎已在后台运行' : '🚀 1. 启动心流探测引擎' }}
+                </button>
+
+                <button @click="submitICAAndStartTask" class="bg-red-500 text-white px-8 py-4 rounded-lg font-bold hover:bg-red-600 shadow-md">
+                    2. 配置完成，正式开始任务 1
+                </button>
+            </div>
         </div>
     </div>
 
-    <div v-if="stage === 'task'" class="flex h-full w-full gap-6">
+    <div v-if="stage === 'task'" class="flex w-full gap-6 h-[85vh] mt-4">
         <div class="flex-1 flex flex-col bg-white rounded-2xl shadow-2xl overflow-hidden border border-gray-200">
             <div class="bg-slate-800 text-white px-6 py-4 flex justify-between items-center shadow-md z-10">
                 <span class="font-bold text-lg tracking-widest">
@@ -194,11 +220,11 @@
         </div>
     </div>
 
-    <div v-if="stage === 'midtest' || stage === 'posttest'" class="bg-white p-10 rounded-2xl shadow-2xl w-[1000px] h-[90vh] flex flex-col">
-        <h2 class="text-3xl font-bold mb-2 text-center text-blue-900 border-b pb-4">
+    <div v-if="stage === 'midtest' || stage === 'posttest'" class="bg-white p-10 rounded-2xl shadow-2xl w-[1000px] mt-4">
+        <h2 class="text-3xl font-bold mb-6 text-center text-blue-900 border-b pb-4">
             {{ stage === 'midtest' ? `任务 ${currentTaskIdx + 1} 阶段体验评估` : '全流程终极体验后测' }}
         </h2>
-        <div class="flex-1 overflow-y-auto pr-6 space-y-8 mt-6 pb-10">
+        <div class="space-y-8">
             <div class="space-y-4">
                 <div v-for="(q, idx) in midtestQuestions" :key="'mid'+idx" class="bg-gray-50 p-5 rounded-xl">
                     <p class="font-semibold mb-3">{{idx + 1}}. {{ q }}</p>
@@ -231,17 +257,17 @@
                 </div>
             </div>
         </div>
-        <div class="mt-4 pt-4 border-t text-center">
+        <div class="mt-8 pt-4 border-t text-center">
             <button @click="submitTest" class="bg-indigo-600 text-white px-16 py-4 rounded-xl font-bold text-xl hover:bg-indigo-700 shadow-lg">提交进入下阶段</button>
         </div>
     </div>
 
-    <div v-if="stage === 'rest'" class="bg-slate-900 p-16 rounded-[3rem] shadow-2xl text-center w-[600px]">
+    <div v-if="stage === 'rest'" class="bg-slate-900 p-16 rounded-[3rem] shadow-2xl text-center w-[600px] mt-20">
         <h2 class="text-4xl font-bold text-emerald-400 mb-4 tracking-widest">大脑洗脱期 (REST)</h2>
         <p class="text-7xl font-mono text-white tracking-widest drop-shadow-[0_0_15px_rgba(52,211,153,0.8)]">{{ formatTime(restTimer) }}</p>
     </div>
-    <div v-if="stage === 'done'" class="text-center">
-        <h1 class="text-6xl font-bold text-blue-900 mb-6 tracking-tighter">🎉 实验圆满完成</h1>
+    <div v-if="stage === 'done'" class="text-center mt-20">
+        <h1 class="text-6xl font-bold text-blue-900 mb-6 tracking-tighter">🎉 实验圆满完成，数据已分类入库</h1>
     </div>
 
 </div>
@@ -255,9 +281,10 @@
             const config = ref({ sub_id: '', group: 3, theme: '1. 整合信息理论 (IIT)' });
             const currentTaskIdx = ref(0);
 
-            const baselineTimer = ref(180);
+            const baselineTimer = ref(10);
             const taskTimer = ref(900);
             const restTimer = ref(120);
+            const engineStarted = ref(false); // 🌟 新增：记录引擎状态
 
             let timerInterval = null;
             let ws = null;
@@ -274,7 +301,7 @@
             const chatInput = ref('');
             const envHighlightText = ref('');
 
-            // 绝对完整的问卷原题
+            // 🌟 恢复：绝对完整的 30 道原题
             const pretestDone = ref(false);
             const pretestQuestions = [
                 "我认为自己具备运用创意解决复杂写作难题的能力。","我认为自己擅长构思新颖独特的情节或设定。","我善于在他人已有想法的基础上，作进一步的拓展与深化。",
@@ -309,7 +336,7 @@
             ];
             const postAnswers = ref({ likert: Array(6).fill(null), grid_x: null, grid_y: null, open: ["", "", "", ""] });
 
-            // 剧场UI样式映射
+            // 🌟 恢复：完整的剧场UI映射函数
             const getRoleName = (role) => {
                 const map = { 'rational': '绝对理性者', 'humanist': '人文关怀者', 'creative': '天马行空者', 'user': '作者 (你)', 'system': '环境主脑' };
                 return map[role] || 'AI';
@@ -336,7 +363,7 @@
             const startBaseline = async () => {
                 if (!config.value.sub_id) return alert("被试编号必填！");
                 stage.value = 'baseline_wait';
-                baselineTimer.value = 180;
+                baselineTimer.value = 10;
 
                 timerInterval = setInterval(() => {
                     baselineTimer.value--;
@@ -361,13 +388,29 @@
                 else if (stage.value === 'pretest' && baselineTimer.value > 0) stage.value = 'baseline_wait';
             };
 
+            // --- 修改启动引擎的部分 ---
+            const startInferenceEngine = async () => {
+                await fetch('http://127.0.0.1:8000/api/start_inference', {
+                    method: 'POST',
+                    headers: {'Content-Type': 'application/json'},
+                    body: JSON.stringify({ sub_id: config.value.sub_id }) // 👈 传过去
+                });
+                engineStarted.value = true;
+                alert("已命令后台启动推断引擎，请在终端检查输出。");
+            };
+
             const submitICAAndStartTask = async () => {
                 await fetch('http://127.0.0.1:8000/api/submit_ica', {
-                    method: 'POST', headers: {'Content-Type': 'application/json'},
-                    body: JSON.stringify({ exclude_indices: icaExcludes.value })
+                    method: 'POST',
+                    headers: {'Content-Type': 'application/json'},
+                    body: JSON.stringify({
+                        sub_id: config.value.sub_id, // 👈 传过去
+                        exclude_indices: icaExcludes.value
+                    })
                 });
                 startMainTask();
             };
+
 
             const startMainTask = () => {
                 stage.value = 'task';
@@ -491,14 +534,15 @@
                 await fetch('http://127.0.0.1:8000/api/save_experiment', {
                     method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify(payload)
                 });
+                alert("提交成功！文件已存入 experiment_data 文件夹。");
             };
 
             return {
-                stage, config, currentTaskIdx, baselineTimer, taskTimer, restTimer,
+                stage, config, currentTaskIdx, baselineTimer, taskTimer, restTimer, engineStarted,
                 pretestDone, pretestQuestions, pretestAnswers, midtestQuestions, midAnswers, posttestOpenQuestions, postAnswers,
                 icaImageUrl, icaExcludes, texts, chats, chatInput, isState0, envHighlightText,
                 formatTime, getCurrentTestRef, selectAffectGrid, getRoleName, getRoleIcon, getRoleColor,
-                startBaseline, submitPretest, submitICAAndStartTask, submitTest, logKey, sendChat
+                startBaseline, submitPretest, startInferenceEngine, submitICAAndStartTask, submitTest, logKey, sendChat
             };
         }
     }).mount('#app');

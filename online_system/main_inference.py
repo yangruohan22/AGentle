@@ -10,6 +10,10 @@ from scipy.stats import entropy
 from scipy.ndimage import binary_closing
 from pylsl import resolve_byprop, StreamInlet
 import warnings
+import os
+import joblib
+current_dir = os.path.dirname(os.path.abspath(__file__))
+
 
 # ================= 0. 环境补丁与配置 =================
 warnings.filterwarnings('ignore')
@@ -27,9 +31,12 @@ ET_SFREQ = 1200
 
 # ================= 1. 唤醒模型武器库与手动 ICA 配置 =================
 print("🧠 正在唤醒 A-Gentle AI 引擎...")
-live_model = joblib.load('agentle_lgbm_champion.pkl')
-live_scaler = joblib.load('agentle_scaler.pkl')
-expected_features = joblib.load('agentle_features.pkl')
+model_dir = os.path.join(current_dir, "..", "model")
+
+# ✅ 修改加载语句，使用组合后的路径
+live_model = joblib.load(os.path.join(model_dir, 'agentle_lgbm_champion.pkl'))
+live_scaler = joblib.load(os.path.join(model_dir, 'agentle_scaler.pkl'))
+expected_features = joblib.load(os.path.join(model_dir, 'agentle_features.pkl'))
 
 # 🚀 加载手动 ICA 拼图
 try:
