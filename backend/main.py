@@ -43,6 +43,7 @@ active_websockets = []
 class SetupData(BaseModel):
     sub_id: str
     group: int
+    duration: int = 180
     # task_id: int # 去除必填限制以兼容前端
 
 
