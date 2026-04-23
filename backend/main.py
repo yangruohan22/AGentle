@@ -51,7 +51,7 @@ class SetupData(BaseModel):
 async def start_baseline(data: SetupData):
     print(f"[{datetime.now().strftime('%H:%M:%S')}] 🚀 开始基线采集 (Sub: {data.sub_id})")
     try:
-        subprocess.Popen(["python", "baseline_recorder.py", data.sub_id])
+        subprocess.Popen(["python", "baseline_recorder.py", data.sub_id, str(data.duration)])
     except Exception as e:
         print(f"启动录制脚本失败: {e}")
     return {"status": "success", "image_url": "/static/current_ica.png"}

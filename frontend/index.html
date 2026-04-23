@@ -143,8 +143,12 @@
             </select>
         </div>
 
-        <img :src="icaImageUrl" class="h-[500px] border-2 border-gray-200 rounded mb-6 object-contain" alt="ICA 面板图" onerror="this.src='https://via.placeholder.com/800x400?text=Waiting+for+ICA+Plot...'">
-
+        <img v-if="icaImageUrl" :src="icaImageUrl"
+             class="h-[500px] border-2 border-gray-200 rounded mb-6 object-contain"
+             alt="ICA 面板图">
+        <div v-else class="h-[500px] w-[800px] bg-gray-100 flex items-center justify-center text-gray-400 border-2 border-dashed rounded mb-6">
+            等待基线采集完成...
+        </div>
         <div class="flex flex-col gap-6 w-full items-center bg-gray-50 p-6 rounded-lg">
             <div class="flex items-center gap-4 w-full justify-center">
                 <label class="font-bold">剔除ICA成分:</label>
@@ -284,7 +288,6 @@
             const config = ref({ sub_id: '', group: 3, theme: '1. 整合信息理论 (IIT)' });
             const currentTaskIdx = ref(0);
 
-            const baselineTimer = ref(10);
             const taskTimer = ref(900);
             const restTimer = ref(120);
             const engineStarted = ref(false); // 🌟 新增：记录引擎状态

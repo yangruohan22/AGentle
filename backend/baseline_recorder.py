@@ -7,7 +7,7 @@ import matplotlib.pyplot as plt
 from pylsl import resolve_byprop, StreamInlet
 import os
 
-plt.rcParams['font.sans-serif'] = ['SimHei']
+plt.rcParams['font.sans-serif'] = ['Microsoft YaHei', 'SimHei', 'Arial Unicode MS', 'sans-serif']
 plt.rcParams['axes.unicode_minus'] = False
 matplotlib.use('Agg')  # 关键：无头模式，不在屏幕弹窗，直接存图片
 def record_and_process(sub_id):
