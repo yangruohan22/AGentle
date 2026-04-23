@@ -14,10 +14,22 @@ def record_and_process(sub_id):
     print(f"🎬 开始为 {sub_id} 录制 3 分钟基线数据...")
 
     # 1. 寻找 LSL 流
-    streams = resolve_byprop('name', 'Neuracle_EEG')
+    # --- 修改第 20 行附近 ---
+    print(f"🎬 开始为 {sub_id} 寻找 LSL 数据流...")
+
+    # ✅ 修改：增加 timeout=5.0 参数。如果 5 秒找不到，它会返回空列表
+    streams = resolve_byprop('name', 'Neuracle_EEG', timeout=5.0)
+
+    if not streams:
+        print("❌ 错误：在局域网内未发现 'Neuracle_EEG' 信号！请检查设备或模拟器是否开启。")
+        # 这里可以尝试删除旧图，防止前端误读
+        old_img = os.path.join(os.getcwd(), 'static_plots', 'current_ica.png')
+        if os.path.exists(old_img): os.remove(old_img)
+        sys.exit(1)  # 异常退出，这样 main.py 就能捕获到错误
+
     inlet = StreamInlet(streams[0])
     sfreq = int(inlet.info().nominal_srate())
-
+    inlet = StreamInlet(streams[0])
     # 2. 收集 3 分钟 (180秒) 数据
     duration = 10
     target_samples = duration * sfreq

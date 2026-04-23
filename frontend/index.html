@@ -74,9 +74,9 @@
             <div>
                 <label class="block text-sm font-semibold mb-1">实验组别</label>
                 <select v-model="config.group" class="w-full border-2 border-gray-200 p-3 rounded-lg focus:border-blue-500 outline-none">
-                    <option :value="1">组 1 (对照组：纯记录)</option>
-                    <option :value="2">组 2 (互动组：主动对话AI)</option>
-                    <option :value="3">组 3 (干预组：双路生理环境小剧场)</option>
+                    <option :value="1">组 1 </option>
+                    <option :value="2">组 2 </option>
+                    <option :value="3">组 3 </option>
                 </select>
             </div>
             <button @click="startBaseline" class="w-full bg-blue-600 text-white font-bold py-4 rounded-lg shadow-lg hover:bg-blue-700 transition mt-4">
@@ -277,6 +277,9 @@
 
     createApp({
         setup() {
+            // 在 setup() 内部最上方
+            const BASELINE_DURATION = 10; // 👈 以后改时间只改这里！！
+            const baselineTimer = ref(BASELINE_DURATION);
             const stage = ref('setup');
             const config = ref({ sub_id: '', group: 3, theme: '1. 整合信息理论 (IIT)' });
             const currentTaskIdx = ref(0);
@@ -363,18 +366,27 @@
             const startBaseline = async () => {
                 if (!config.value.sub_id) return alert("被试编号必填！");
                 stage.value = 'baseline_wait';
-                baselineTimer.value = 10;
+                baselineTimer.value = BASELINE_DURATION; // 👈 使用全局变量
 
                 timerInterval = setInterval(() => {
                     baselineTimer.value--;
-                    if (baselineTimer.value <= 0) { clearInterval(timerInterval); checkBaselineToICA(); }
+                    if (baselineTimer.value <= 0) {
+                        clearInterval(timerInterval);
+                        // 倒计时结束时，再去检查图片是否存在
+                        checkBaselineToICA();
+                    }
                 }, 1000);
 
-                const res = await fetch('http://127.0.0.1:8000/api/start_baseline', {
-                    method: 'POST', headers: {'Content-Type': 'application/json'},
-                    body: JSON.stringify(config.value)
-                }).then(r => r.json());
-                icaImageUrl.value = 'http://127.0.0.1:8000' + res.image_url;
+                // 发送请求给后端
+                await fetch('http://127.0.0.1:8000/api/start_baseline', {
+                    method: 'POST',
+                    headers: {'Content-Type': 'application/json'},
+                    body: JSON.stringify({
+                        sub_id: config.value.sub_id,
+                        group: config.value.group,
+                        duration: BASELINE_DURATION // 👈 把时间也传给后端！
+                    })
+                });
             };
 
             const submitPretest = () => {
