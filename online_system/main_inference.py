@@ -48,15 +48,13 @@ try:
     fif_path = os.path.join(backend_config_dir, f"{sub_id}_baseline_ica.fif")
     json_path = os.path.join(backend_config_dir, f"{sub_id}_ica_config.json")
 
-    # 加载基线生成的专属 ICA 模型
     base_ica = mne.preprocessing.read_ica(fif_path)
-    # 加载该被试手动剔除的黑名单
     with open(json_path, 'r', encoding='utf-8') as f:
         manual_config = json.load(f)
         manual_excludes = manual_config.get('manual_excludes', [])
     print(f"✅ 成功加载 {sub_id} 的专属配置！封印索引: {manual_excludes}")
 except Exception as e:
-    print(f"⚠️ 未找到 {sub_id} 的专属配置，将不执行 ICA 去噪。错误详情: {e}")
+    print(f"⚠️ 未找到专属配置，将不执行 ICA 去噪。详情: {e}")
     base_ica = None
     manual_excludes = []
 
