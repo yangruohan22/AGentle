@@ -154,16 +154,20 @@
                 <label class="font-bold">剔除ICA成分:</label>
                 <input v-model="icaExcludes" type="text" placeholder="如: 0,1" class="border-2 border-gray-300 p-3 rounded w-48 text-center text-lg focus:border-blue-500 outline-none">
             </div>
-
-            <div class="flex gap-4">
-                <button @click="startInferenceEngine" :class="['px-8 py-4 rounded-lg font-bold shadow-md transition', engineStarted ? 'bg-green-500 text-white' : 'bg-purple-600 text-white hover:bg-purple-700']">
-                    {{ engineStarted ? '✅ 引擎已在后台运行' : '🚀 1. 启动心流探测引擎' }}
+            <div class="flex flex-col gap-4">
+                <button @click="submitICAConfig" class="bg-blue-600 text-white px-8 py-3 rounded-lg font-bold">
+                    1. 确认ICA剔除配置
                 </button>
 
-                <button @click="submitICAAndStartTask" class="bg-red-500 text-white px-8 py-4 rounded-lg font-bold hover:bg-red-600 shadow-md">
-                    2. 配置完成，正式开始任务 1
+                <button @click="startInferenceEngine" :disabled="!configSaved" :class="!configSaved ? 'bg-gray-300' : 'bg-purple-600'" class="text-white px-8 py-3 rounded-lg font-bold">
+                    2. 启动心流探测引擎
+                </button>
+
+                <button @click="goToTaskOne" :disabled="!engineStarted" :class="!engineStarted ? 'bg-gray-300' : 'bg-red-500'" class="text-white px-8 py-4 rounded-lg font-bold text-xl">
+                    3. 进入正式任务 1
                 </button>
             </div>
+
         </div>
     </div>
 
@@ -291,6 +295,7 @@
             const taskTimer = ref(900);
             const restTimer = ref(120);
             const engineStarted = ref(false); // 🌟 新增：记录引擎状态
+            const configSaved = ref(false);
 
             let timerInterval = null;
             let ws = null;
@@ -398,9 +403,32 @@
                 checkBaselineToICA();
             };
 
+            // --- 修改 checkBaselineToICA 函数 ---
             const checkBaselineToICA = () => {
-                if (baselineTimer.value <= 0 && pretestDone.value) stage.value = 'ica_review';
-                else if (stage.value === 'pretest' && baselineTimer.value > 0) stage.value = 'baseline_wait';
+                // 只有倒计时结束且前测完成，才开始“索要”图片
+                if (baselineTimer.value <= 0 ) {
+                    stage.value = 'ica_review'; // 先切到准备页面，显示“正在生成”提示
+                    pollIcaImage(); // 开始轮询
+                }
+            };
+
+            // --- 新增：图片轮询逻辑 ---
+            const pollIcaImage = () => {
+                const timestamp = new Date().getTime();
+                const testUrl = `http://127.0.0.1:8000/static/current_ica.png?t=${timestamp}`;
+
+                const img = new Image();
+                img.onload = () => {
+                    // ✅ 成功加载：正式显示图片
+                    icaImageUrl.value = testUrl;
+                    console.log("✅ ICA图片已就绪并加载成功");
+                };
+                img.onerror = () => {
+                    // ❌ 加载失败：图片还没画完，等待 2 秒后再试
+                    console.log("⏳ 图片尚未生成，2秒后重试...");
+                    setTimeout(pollIcaImage, 2000);
+                };
+                img.src = testUrl;
             };
 
             // --- 修改启动引擎的部分 ---
@@ -414,18 +442,25 @@
                 alert("已命令后台启动推断引擎，请在终端检查输出。");
             };
 
-            const submitICAAndStartTask = async () => {
+            // ✅ 修改：仅提交配置，不跳转页面
+            const submitICAConfig = async () => {
                 await fetch('http://127.0.0.1:8000/api/submit_ica', {
                     method: 'POST',
                     headers: {'Content-Type': 'application/json'},
                     body: JSON.stringify({
-                        sub_id: config.value.sub_id, // 👈 传过去
+                        sub_id: config.value.sub_id,
                         exclude_indices: icaExcludes.value
                     })
                 });
-                startMainTask();
+                configSaved.value = true; // 标记已保存
+                alert("✅ ICA配置已封存，请启动探测引擎后，点击下方的'进入正式任务'");
             };
 
+            // ✅ 新增：独立的手动开始任务按钮逻辑
+            const goToTaskOne = () => {
+                if (!engineStarted.value) return alert("请先点击紫色按钮启动探测引擎！");
+                startMainTask();
+            };
 
             const startMainTask = () => {
                 stage.value = 'task';
@@ -553,11 +588,28 @@
             };
 
             return {
-                stage, config, currentTaskIdx, baselineTimer, taskTimer, restTimer, engineStarted,
-                pretestDone, pretestQuestions, pretestAnswers, midtestQuestions, midAnswers, posttestOpenQuestions, postAnswers,
+                // 基础状态
+                stage, config, currentTaskIdx, baselineTimer, taskTimer, restTimer,
+
+                // 🌟 新逻辑状态变量
+                engineStarted, configSaved,
+
+                // 问卷与测验数据
+                pretestDone, pretestQuestions, pretestAnswers,
+                midtestQuestions, midAnswers, posttestOpenQuestions, postAnswers,
+
+                // ICA 与 创作区数据
                 icaImageUrl, icaExcludes, texts, chats, chatInput, isState0, envHighlightText,
+
+                // 工具函数
                 formatTime, getCurrentTestRef, selectAffectGrid, getRoleName, getRoleIcon, getRoleColor,
-                startBaseline, submitPretest, startInferenceEngine, submitICAAndStartTask, submitTest, logKey, sendChat
+
+                // 流程控制函数
+                startBaseline, submitPretest, startInferenceEngine, submitTest, logKey, sendChat,
+
+                // 🌟 新增的拆分后的函数 (取代了 submitICAAndStartTask)
+                submitICAConfig,
+                goToTaskOne
             };
         }
     }).mount('#app');

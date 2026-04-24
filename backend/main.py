@@ -137,12 +137,12 @@ async def alert_depletion():
 async def call_agent(role: str, sys_prompt: str, user_prompt: str):
     try:
         resp = await client.chat.completions.create(
-            model="kimi-k2.5",
+            model="moonshot-v1-8k",
             messages=[
                 {"role": "system", "content": sys_prompt},
                 {"role": "user", "content": user_prompt}
             ],
-            temperature=0.85
+            temperature=1
         )
         return {"role": role, "content": resp.choices[0].message.content.strip()}
     except Exception as e:
@@ -162,10 +162,10 @@ async def call_env_agent(theme: str, current_text: str):
     }"""
     try:
         resp = await client.chat.completions.create(
-            model="kimi-k2.5",
+            model="moonshot-v1-8k",
             messages=[{"role": "system", "content": sys_prompt},
                       {"role": "user", "content": f"主题：{theme}\n当前文本：{current_text[-200:]}"}],
-            temperature=0.7
+            temperature=1
         )
         content = resp.choices[0].message.content
         match = re.search(r'\{.*\}', content, re.DOTALL)

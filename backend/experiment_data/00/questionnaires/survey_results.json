@@ -1,0 +1,90 @@
+{
+  "pretest": [
+    null,
+    null,
+    null,
+    null,
+    null,
+    null,
+    null,
+    null,
+    null,
+    null,
+    null,
+    null,
+    null,
+    null,
+    null,
+    null,
+    null,
+    null,
+    null,
+    null,
+    null,
+    null,
+    null,
+    null,
+    null,
+    null,
+    null,
+    null,
+    null,
+    null
+  ],
+  "posttest": {
+    "likert": [
+      null,
+      null,
+      null,
+      null,
+      null,
+      null
+    ],
+    "grid_x": null,
+    "grid_y": null,
+    "open": [
+      "",
+      "",
+      "",
+      ""
+    ]
+  },
+  "tasks_midtest": [
+    {
+      "likert": [
+        1,
+        1,
+        1,
+        1,
+        1,
+        1
+      ],
+      "grid_x": 3,
+      "grid_y": 5
+    },
+    {
+      "likert": [
+        null,
+        null,
+        null,
+        null,
+        null,
+        null
+      ],
+      "grid_x": null,
+      "grid_y": null
+    },
+    {
+      "likert": [
+        null,
+        null,
+        null,
+        null,
+        null,
+        null
+      ],
+      "grid_x": null,
+      "grid_y": null
+    }
+  ]
+}

@@ -12,7 +12,10 @@ plt.rcParams['axes.unicode_minus'] = False
 matplotlib.use('Agg')  # 关键：无头模式，不在屏幕弹窗，直接存图片
 def record_and_process(sub_id):
     print(f"🎬 开始为 {sub_id} 录制 3 分钟基线数据...")
-
+    # ✅ 新增：物理删除旧图，确保前端轮询时不会读到残骸
+    stale_img = os.path.join('static_plots', 'current_ica.png')
+    if os.path.exists(stale_img):
+        os.remove(stale_img)
     # 1. 寻找 LSL 流
     # --- 修改第 20 行附近 ---
     print(f"🎬 开始为 {sub_id} 寻找 LSL 数据流...")
@@ -101,12 +104,16 @@ def record_and_process(sub_id):
         ax_wave.plot(time_seg, ic_data[i, start_idx:end_idx], color='k', linewidth=0.8)
         ax_wave.set_title(f'成分 {i} 时域波形 (中间 20s)', fontsize=14)
 
-    save_path = os.path.join(os.getcwd(), 'static_plots', 'current_ica.png')
+    # ✅ 1. 保存到静态目录供前端实时显示
+    save_path = os.path.join('static_plots', 'current_ica.png')
     fig.savefig(save_path, bbox_inches='tight', dpi=150)
 
-    # 保存图片给前端读取
+    # ✅ 2. 新增：保存被试专属备份，防止数据丢失
+    sub_img_path = os.path.join("experiment_data", sub_id, "config", f"{sub_id}_ica_panel.png")
+    fig.savefig(sub_img_path, bbox_inches='tight', dpi=150)
+
     plt.close(fig)
-    print(f"🎉 基线处理完成，ICA图已生成在: {save_path}")
+    print(f"🎉 任务准备就绪。专属图存至: {sub_img_path}")
 
 
 if __name__ == "__main__":
