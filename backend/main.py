@@ -11,12 +11,33 @@ from openai import AsyncOpenAI
 from datetime import datetime
 import os
 
+# ================= 新增：引入 LSL 库 =================
+try:
+    from pylsl import StreamInfo, StreamOutlet
+except ImportError:
+    StreamInfo, StreamOutlet = None, None
+# =====================================================
+
 # 获取当前 backend 文件夹的绝对路径
 current_dir = os.path.dirname(os.path.abspath(__file__))
 static_path = os.path.join(current_dir, "static_plots")
 os.makedirs(static_path, exist_ok=True)
 
 app = FastAPI()
+
+# ================= 新增：初始化 LSL Marker 出口 =================
+try:
+    if StreamInfo and StreamOutlet:
+        info = StreamInfo('AGentle_Marker', 'Markers', 1, 0, 'string', 'agentle_uid_12345')
+        marker_outlet = StreamOutlet(info)
+        print("✅ LSL Marker 广播通道初始化成功！")
+    else:
+        marker_outlet = None
+        print("⚠️ 未检测到 pylsl 库，LSL Marker 打标暂不可用（如有需要请 pip install pylsl）。")
+except Exception as e:
+    print(f"⚠️ LSL Marker 初始化失败: {e}")
+    marker_outlet = None
+# ================================================================
 
 app.add_middleware(
     CORSMiddleware,
@@ -128,6 +149,78 @@ async def alert_depletion():
     # 纯转发：告诉所有前端，生理枯竭了！触发组 3 的逻辑
     for ws in active_websockets:
         await ws.send_json({"type": "physiological_alert"})
+    return {"status": "success"}
+
+# =========================================================================
+# ========================= 新增：打标与单步覆盖 API 区 =========================
+# =========================================================================
+
+class MarkerData(BaseModel):
+    event: str
+    abs_time: str
+
+@app.post("/api/send_marker")
+async def send_marker(data: MarkerData):
+    if marker_outlet:
+        # 将事件和绝对时间戳拼成字符串发给 LSL
+        marker_str = f"EVENT:{data.event}|ABS_TIME:{data.abs_time}"
+        marker_outlet.push_sample([marker_str])
+        print(f"[{datetime.now().strftime('%H:%M:%S')}] 🚩 LSL打标: {data.event}")
+    return {"status": "success"}
+
+class PretestData(BaseModel):
+    sub_id: str
+    answers: list
+
+@app.post("/api/save_pretest")
+async def save_pretest(data: PretestData):
+    dir_path = f"experiment_data/{data.sub_id}/questionnaires"
+    os.makedirs(dir_path, exist_ok=True)
+    with open(f"{dir_path}/pretest.json", "w", encoding="utf-8") as f:
+        json.dump(data.answers, f, ensure_ascii=False, indent=2)
+    print(f"[{datetime.now().strftime('%H:%M:%S')}] 📝 前测问卷已即时保存/覆盖")
+    return {"status": "success"}
+
+class PosttestData(BaseModel):
+    sub_id: str
+    answers: dict
+
+@app.post("/api/save_posttest")
+async def save_posttest(data: PosttestData):
+    dir_path = f"experiment_data/{data.sub_id}/questionnaires"
+    os.makedirs(dir_path, exist_ok=True)
+    with open(f"{dir_path}/posttest.json", "w", encoding="utf-8") as f:
+        json.dump(data.answers, f, ensure_ascii=False, indent=2)
+    print(f"[{datetime.now().strftime('%H:%M:%S')}] 📝 后测问卷已即时保存/覆盖")
+    return {"status": "success"}
+
+class PartialTaskData(BaseModel):
+    sub_id: str
+    task_id: int
+    text: str
+    keystrokes: list
+    chat_log: list
+    survey_mid: dict
+
+@app.post("/api/save_partial_task")
+async def save_partial_task(data: PartialTaskData):
+    base_dir = f"experiment_data/{data.sub_id}"
+    os.makedirs(f"{base_dir}/text_output", exist_ok=True)
+    os.makedirs(f"{base_dir}/behavior", exist_ok=True)
+    os.makedirs(f"{base_dir}/chat_logs", exist_ok=True)
+    os.makedirs(f"{base_dir}/questionnaires", exist_ok=True)
+
+    # 用 "w" 模式覆盖写入，完美支持被试重新做某一个任务
+    with open(f"{base_dir}/text_output/task_{data.task_id}_story.txt", "w", encoding="utf-8") as f:
+        f.write(data.text)
+    with open(f"{base_dir}/behavior/task_{data.task_id}_keystrokes.json", "w", encoding="utf-8") as f:
+        json.dump(data.keystrokes, f, ensure_ascii=False, indent=2)
+    with open(f"{base_dir}/chat_logs/task_{data.task_id}_chats.json", "w", encoding="utf-8") as f:
+        json.dump(data.chat_log, f, ensure_ascii=False, indent=2)
+    with open(f"{base_dir}/questionnaires/task_{data.task_id}_midtest.json", "w", encoding="utf-8") as f:
+        json.dump(data.survey_mid, f, ensure_ascii=False, indent=2)
+
+    print(f"[{datetime.now().strftime('%H:%M:%S')}] 💾 任务 {data.task_id} 的全部数据(含中测)已安全覆盖/备份")
     return {"status": "success"}
 
 

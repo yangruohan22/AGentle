@@ -369,9 +369,20 @@
             const chats = ref([[], [], []]);
             const chatInput = ref('');
             const envHighlightText = ref('');
-
-            // 🌟 恢复：绝对完整的 30 道原题
             const pretestDone = ref(false);
+            //打标逻辑
+            const sendMarker = async (eventName) => {
+                try {
+                    const absTime = new Date().toISOString(); // 获取带毫秒的绝对物理时间
+                    await fetch('http://127.0.0.1:8000/api/send_marker', {
+                        method: 'POST',
+                        headers: {'Content-Type': 'application/json'},
+                        body: JSON.stringify({ event: eventName, abs_time: absTime })
+                    });
+                } catch (e) {
+                    console.error("打标请求失败", e);
+                }
+            };
             // ==================== 题库定义区 ====================
 
             // 前测问卷 (共 30 题)
@@ -514,17 +525,25 @@
                 });
             };
 
-            const submitPretest = () => {
+
+            const submitPretest = async () => {
                 if(preAnswers.value.includes(null) && !confirm("未答完，强行提交？")) return;
+
+                // 💾 即时独立保存前测（无论之后是否跳关刷新，前测都已落库）
+                await fetch('http://127.0.0.1:8000/api/save_pretest', {
+                    method: 'POST',
+                    headers: {'Content-Type': 'application/json'},
+                    body: JSON.stringify({ sub_id: config.value.sub_id, answers: preAnswers.value })
+                });
+
                 pretestDone.value = true;
-                stage.value = 'baseline_wait'; // 👈 修复4：提交完返回倒计时打坐页面
+                stage.value = 'baseline_wait';
                 checkBaselineToICA();
             };
-
             // --- 修改 checkBaselineToICA 函数 ---
             const checkBaselineToICA = () => {
                 // 只有倒计时结束且前测完成，才开始“索要”图片
-                if (baselineTimer.value <= 0 ) {
+                if (baselineTimer.value <= 0 && pretestDone.value) {
                     stage.value = 'ica_review'; // 先切到准备页面，显示“正在生成”提示
                     pollIcaImage(); // 开始轮询
                 }
@@ -586,6 +605,9 @@
                 lastTypeTime = Date.now();
                 isState0.value = false;
 
+                // 🚩 发送任务开始标记！
+                sendMarker(`Task_${currentTaskIdx.value + 1}_Start`);
+
                 resetEnvironment();
                 if (currentTaskIdx.value === 0) initWebSocket();
                 startBehaviorTracker();
@@ -595,13 +617,25 @@
                     if (taskTimer.value <= 0) {
                         clearInterval(timerInterval);
                         clearInterval(behaviorCheckInterval);
+                        // 🚩 发送任务结束标记！
+                        sendMarker(`Task_${currentTaskIdx.value + 1}_End`);
                         stage.value = 'midtest';
                     }
                 }, 1000);
             };
 
             const logKey = (e) => {
-                if (['Shift', 'Control', 'Alt', 'Meta'].includes(e.key)) return;
+                // 💡 捕捉 Aha Moment! 只要按下 Ctrl，立刻发送打标
+                if (e.key === 'Control') {
+                    sendMarker(`Aha_Moment_Task_${currentTaskIdx.value + 1}`);
+                    // 可选：在界面上闪烁一下提示被试按成功了
+                    envHighlightText.value = "⚡ 灵光一现已记录！";
+                    setTimeout(() => { resetEnvironment(); }, 1500);
+                    return; // 不记录到普通的打字行为里
+                }
+
+                if (['Shift', 'Alt', 'Meta'].includes(e.key)) return;
+
                 lastTypeTime = Date.now();
                 keyLogs.value[currentTaskIdx.value].push({ key: e.key, time: lastTypeTime });
 
@@ -610,7 +644,6 @@
                     resetEnvironment();
                 }
             };
-
             const startBehaviorTracker = () => {
                 if (behaviorCheckInterval) clearInterval(behaviorCheckInterval);
                 behaviorCheckInterval = setInterval(() => {}, 1000); // 仅做占位，实际由生理触发配合时间戳判定
@@ -696,21 +729,24 @@
                         stage.value = 'posttest';
                     }
                 }
-                // 3. 后测校验
                 else if (stage.value === 'posttest') {
                     let isComplete = !postAnswers.value.general.includes(null);
-
-                    // AI组和AGentle组需要额外校验第二部分
                     if (config.value.group > 1) {
                         if (postAnswers.value.ai_eval.includes(null)) isComplete = false;
                     }
-
                     if (!isComplete && !confirm("后测问卷未填完整，强行提交？")) return;
 
-                    // 保存终极数据
+                    // 💾 即时独立保存后测
+                    await fetch('http://127.0.0.1:8000/api/save_posttest', {
+                        method: 'POST',
+                        headers: {'Content-Type': 'application/json'},
+                        body: JSON.stringify({ sub_id: config.value.sub_id, answers: postAnswers.value })
+                    });
+
                     await saveUltimateData();
                     stage.value = 'done';
                 }
+
             };
 
             // 👈 修复3：补充缺失的分阶段备份函数
@@ -752,7 +788,7 @@
 
             return {
                 // 基础状态
-                stage, config, currentTaskIdx, baselineTimer, taskTimer, restTimer,
+                stage, config, currentTaskIdx, baselineTimer, taskTimer, restTimer, sendMarker,
 
                 // 🌟 新逻辑状态变量
                 engineStarted, configSaved,
