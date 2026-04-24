@@ -106,23 +106,21 @@
         </div>
     </div>
 
-    <div v-if="stage === 'pretest'" class="bg-white p-10 rounded-2xl shadow-2xl w-[900px] mt-4">
-        <div class="flex justify-between items-center mb-6 border-b pb-4">
-            <h2 class="text-2xl font-bold text-gray-800">前测问卷</h2>
-            <span class="text-blue-600 font-mono bg-blue-50 px-3 py-1 rounded">基线倒计时: {{ formatTime(baselineTimer) }}</span>
-        </div>
-        <div class="space-y-6">
-            <p class="text-gray-500 italic mb-4">请仔细阅读以下陈述，并选择最符合您实际情况的分数 (1=非常不同意, 7=非常同意)。</p>
-            <div v-for="(q, idx) in pretestQuestions" :key="'pre'+idx" class="bg-gray-50 p-5 rounded-xl border border-gray-100 hover:shadow-md transition">
-                <p class="font-semibold mb-4">{{idx + 1}}. {{ q }}</p>
+    <div v-if="stage === 'pretest'" class="bg-white p-10 rounded-2xl shadow-2xl w-[1000px] mt-4">
+        <h2 class="text-3xl font-bold mb-6 text-center text-blue-900 border-b pb-4">第一部分：个人特质与基线问卷</h2>
+        <div class="h-[60vh] overflow-y-auto pr-4 space-y-6">
+            <div v-for="(q, idx) in pretestQuestions" :key="'pre_'+idx" class="bg-gray-50 p-5 rounded-xl border border-gray-100">
+                <p class="font-semibold mb-2 text-gray-800">{{idx + 1}}. {{ q }}</p>
+                <p class="text-xs text-blue-500 mb-3 font-bold">(1 = 非常不同意，7 = 非常同意)</p>
                 <div class="flex justify-between max-w-2xl mx-auto">
-                    <label v-for="i in 7" :key="i" class="flex flex-col items-center cursor-pointer">
-                        <input type="radio" :name="'pre_'+idx" :value="i" v-model="pretestAnswers[idx]" class="w-5 h-5 text-blue-600 cursor-pointer mb-2">
-                        <span class="text-sm text-gray-500">{{i}}</span>
+                    <label v-for="i in 7" :key="i" class="flex flex-col items-center cursor-pointer hover:bg-blue-50 p-2 rounded-lg transition-colors">
+                        <input type="radio" :value="i" v-model="preAnswers[idx]" class="w-5 h-5 text-blue-600 mb-1">
+                        <span class="text-sm text-gray-600 font-medium">{{i}}</span>
                     </label>
                 </div>
             </div>
         </div>
+
         <div class="mt-8 pt-4 border-t text-center">
             <button @click="submitPretest" class="bg-green-600 text-white px-12 py-4 rounded-lg font-bold text-lg hover:bg-green-700 shadow-lg">提交并返回</button>
         </div>
@@ -270,8 +268,110 @@
         </div>
     </div>
 
+    <div v-if="stage === 'midtest'" class="bg-white p-10 rounded-2xl shadow-2xl w-[1000px] mt-4">
+        <h2 class="text-3xl font-bold mb-6 text-center text-green-700 border-b pb-4">任务 {{ currentTaskIdx + 1 }} 体验反馈</h2>
+
+        <div class="space-y-6 mb-10">
+            <div v-for="(q, idx) in midtestQuestions" :key="'mid_'+idx" class="bg-green-50 p-5 rounded-xl border border-green-100">
+                <p class="font-semibold mb-2 text-gray-800">{{idx + 1}}. {{ q }}</p>
+                <p class="text-xs text-green-600 mb-3 font-bold">(1 = 非常不同意，7 = 非常同意)</p>
+                <div class="flex justify-between max-w-2xl mx-auto">
+                    <label v-for="i in 7" :key="'m_'+i" class="flex flex-col items-center cursor-pointer hover:bg-green-100 p-2 rounded-lg transition-colors">
+                        <input type="radio" :value="i" v-model="midAnswers[currentTaskIdx].likert[idx]" class="w-5 h-5 text-green-600 mb-1">
+                        <span class="text-sm text-gray-600 font-medium">{{i}}</span>
+                    </label>
+                </div>
+            </div>
+        </div>
+
+        <div class="bg-gray-50 p-6 rounded-xl border border-gray-200">
+            <p class="font-semibold mb-6 text-center text-lg">5. 请在下方网格中，点击最符合您过去15分钟情绪状态的格子：</p>
+
+            <div class="flex flex-col items-center select-none">
+                <div class="text-md font-bold text-red-600 mb-2 flex flex-col items-center">
+                    <span>高唤醒 / 激动</span>
+                    <span class="text-xs font-normal text-gray-500">(High Arousal / Excitement)</span>
+                </div>
+
+                <div class="flex items-center">
+                    <div class="text-md font-bold text-gray-600 mr-4 w-28 text-right flex flex-col items-end">
+                        <span>极度不愉悦</span>
+                        <span class="text-xs font-normal text-gray-500">(Unpleasant)</span>
+                    </div>
+
+                    <div class="grid grid-cols-9 grid-rows-9 gap-[2px] border-4 border-gray-400 p-1 bg-white shadow-inner">
+                        <template v-for="y in 9">
+                            <template v-for="x in 9">
+                                <div class="w-8 h-8 border border-gray-200 hover:bg-blue-300 cursor-pointer transition-colors duration-150"
+                                     :class="{'bg-blue-600 border-blue-800 shadow-md transform scale-110': midAnswers[currentTaskIdx].grid_x === x && midAnswers[currentTaskIdx].grid_y === (10-y)}"
+                                     @click="midAnswers[currentTaskIdx].grid_x = x; midAnswers[currentTaskIdx].grid_y = (10-y)">
+                                </div>
+                            </template>
+                        </template>
+                    </div>
+
+                    <div class="text-md font-bold text-gray-600 ml-4 w-28 text-left flex flex-col items-start">
+                        <span>极度愉悦</span>
+                        <span class="text-xs font-normal text-gray-500">(Pleasant)</span>
+                    </div>
+                </div>
+
+                <div class="text-md font-bold text-blue-600 mt-2 flex flex-col items-center">
+                    <span>低唤醒 / 疲倦</span>
+                    <span class="text-xs font-normal text-gray-500">(Low Arousal / Sleepiness)</span>
+                </div>
+            </div>
+        </div>
+
+        <div class="mt-8 text-center">
+            <button @click="submitTest" class="bg-green-600 text-white px-12 py-3 rounded-xl font-bold text-lg hover:bg-green-700">提交阶段反馈</button>
+        </div>
+    </div>
+
+    <div v-if="stage === 'posttest'" class="bg-white p-10 rounded-2xl shadow-2xl w-[1000px] mt-4">
+        <h2 class="text-3xl font-bold mb-6 text-center text-indigo-900 border-b pb-4">
+            后测问卷
+        </h2>
+        <div class="h-[65vh] overflow-y-auto pr-4">
+
+            <div class="space-y-6 mb-10">
+                <h3 class="font-bold text-xl text-gray-700 bg-gray-100 p-3 rounded-lg border-l-4 border-gray-500">第一部分：个人创作效能自评</h3>
+                <div v-for="(q, idx) in posttestGeneralQuestions" :key="'post_gen_'+idx" class="bg-gray-50 p-5 rounded-xl border border-gray-100">
+                    <p class="font-semibold mb-2 text-gray-800">{{idx + 1}}. {{ q }}</p>
+                    <p class="text-xs text-indigo-500 mb-3 font-bold">(1 = 非常不同意，7 = 非常同意)</p>
+                    <div class="flex justify-between max-w-2xl mx-auto">
+                        <label v-for="i in 7" :key="'pg_'+i" class="flex flex-col items-center cursor-pointer hover:bg-indigo-50 p-2 rounded-lg transition-colors">
+                            <input type="radio" :value="i" v-model="postAnswers.general[idx]" class="w-5 h-5 text-indigo-600 mb-1">
+                            <span class="text-sm text-gray-600 font-medium">{{i}}</span>
+                        </label>
+                    </div>
+                </div>
+            </div>
+
+            <div v-if="config.group === 2 || config.group === 3" class="space-y-6 border-t-2 border-dashed border-indigo-200 pt-8">
+                <h3 class="font-bold text-xl text-indigo-700 bg-indigo-50 p-3 rounded-lg border-l-4 border-indigo-500">第二部分：系统使用体验评估</h3>
+                <div v-for="(q, idx) in posttestAIQuestions" :key="'post_ai_'+idx" class="bg-indigo-50 p-5 rounded-xl border border-indigo-100">
+                    <p class="font-semibold mb-2 text-gray-800">{{idx + 4}}. {{ q }}</p> <p class="text-xs text-indigo-500 mb-3 font-bold">(1 = 非常不同意，7 = 非常同意)</p>
+                    <div class="flex justify-between max-w-2xl mx-auto">
+                        <label v-for="i in 7" :key="'pai_'+i" class="flex flex-col items-center cursor-pointer hover:bg-indigo-100 p-2 rounded-lg transition-colors">
+                            <input type="radio" :value="i" v-model="postAnswers.ai_eval[idx]" class="w-5 h-5 text-indigo-600 mb-1">
+                            <span class="text-sm text-gray-600 font-medium">{{i}}</span>
+                        </label>
+                    </div>
+                </div>
+            </div>
+
+        </div>
+
+        <div class="mt-6 pt-4 border-t text-center">
+            <button @click="submitTest" class="bg-indigo-600 text-white px-16 py-4 rounded-xl font-bold text-xl hover:bg-indigo-700 shadow-lg">
+                正式提交并结束实验
+            </button>
+        </div>
+    </div>
+
     <div v-if="stage === 'rest'" class="bg-slate-900 p-16 rounded-[3rem] shadow-2xl text-center w-[600px] mt-20">
-        <h2 class="text-4xl font-bold text-emerald-400 mb-4 tracking-widest">大脑洗脱期 (REST)</h2>
+        <h2 class="text-4xl font-bold text-emerald-400 mb-4 tracking-widest">休息一下吧</h2>
         <p class="text-7xl font-mono text-white tracking-widest drop-shadow-[0_0_15px_rgba(52,211,153,0.8)]">{{ formatTime(restTimer) }}</p>
     </div>
     <div v-if="stage === 'done'" class="text-center mt-20">
@@ -314,38 +414,97 @@
 
             // 🌟 恢复：绝对完整的 30 道原题
             const pretestDone = ref(false);
-            const pretestQuestions = [
-                "我认为自己具备运用创意解决复杂写作难题的能力。","我认为自己擅长构思新颖独特的情节或设定。","我善于在他人已有想法的基础上，作进一步的拓展与深化。",
-                "我不喜欢不确定的情况。","我讨厌可以有多种不同答案的问题。","我发现井然有序、作息规律的生活很适合我的性格。","当我不明白生活中某件事发生的原因时，我会感到不舒服。",
-                "当一个人不同意群体中其他所有人的观点时，我会感到恼火。","我不喜欢在毫无预期的情况下进入某种情境。","当我做出决定后，我会感到如释重负。",
-                "当面临问题时，我迫切希望能迅速找到解决方案。","如果不能立即找到问题的解决方案，我会很快变得不耐烦和烦躁。","我不喜欢和那些经常做出出人意料举动的人在一起。",
-                "我讨厌一个人的陈述可以有多种不同的解释。","我发现建立稳定一致的日常习惯能让我更享受生活。","我喜欢清晰且有条理的生活方式。","在形成自己的观点之前，我通常不会参考许多不同的意见。","我讨厌不可预测的情况。",
-                "本AI辅助系统具有欺骗性。","本AI辅助系统的行为方式不光明正大。","我怀疑本AI辅助系统的意图、行为或输出。","我对本AI辅助系统保持警惕。","本AI辅助系统的行为会导致有害或破坏性的结果。",
-                "我对本AI辅助系统充满信心。","本AI辅助系统能提供安全感。","本AI辅助系统具有诚实可靠性。","本AI辅助系统值得依靠。","本AI辅助系统是可靠的。","我可以信任本AI辅助系统。","我对使用类似于本AI辅助系统的工具具有丰富的经验。"
-            ];
-            const pretestAnswers = ref(Array(30).fill(null));
+            // ==================== 题库定义区 ====================
 
+            // 前测问卷 (共 30 题)
+            const pretestQuestions = [
+                "我认为自己具备运用创意解决复杂写作难题的能力。",
+                "我认为自己擅长构思新颖独特的情节或设定。",
+                "我善于在他人已有想法的基础上，作进一步的拓展与深化。",
+                "我不喜欢不确定的情况。",
+                "我讨厌可以有多种不同答案的问题。",
+                "我发现井然有序、作息规律的生活很适合我的性格。",
+                "当我不明白生活中某件事发生的原因时，我会感到不舒服。",
+                "当一个人不同意群体中其他所有人的观点时，我会感到恼火。",
+                "我不喜欢在毫无预期的情况下进入某种情境。",
+                "当我做出决定后，我会感到如释重负。",
+                "当面临问题时，我迫切希望能迅速找到解决方案。",
+                "如果不能立即找到问题的解决方案，我会很快变得不耐烦和烦躁。",
+                "我不喜欢和那些经常做出出人意料举动的人在一起。",
+                "我讨厌一个人的陈述可以有多种不同的解释。",
+                "我发现建立稳定一致的日常习惯能让我更享受生活。",
+                "我喜欢清晰且有条理的生活方式。",
+                "在形成自己的观点之前，我通常不会参考许多不同的意见。",
+                "我讨厌不可预测的情况。",
+                "本AI辅助系统具有欺骗性。",
+                "本AI辅助系统的行为方式不光明正大。",
+                "我怀疑本AI辅助系统的意图、行为或输出。",
+                "我对本AI辅助系统保持警惕。",
+                "本AI辅助系统的行为会导致有害或破坏性的结果。",
+                "我对本AI辅助系统充满信心。",
+                "本AI辅助系统能提供安全感。",
+                "本AI辅助系统具有诚实可靠性。",
+                "本AI辅助系统值得依靠。",
+                "本AI辅助系统是可靠的。",
+                "我可以信任本AI辅助系统。",
+                "我对使用类似于本AI辅助系统的工具具有丰富的经验。"
+            ];
+
+            // 中测问卷 (共 4 题，每次任务后填)
             const midtestQuestions = [
                 "在刚才的15分钟里，我的注意力完全沉浸于当前的手头构思中。",
                 "在刚才的15分钟里，我丧失了对正常时间流逝的感知。",
                 "刚才的构思过程极度消耗脑力，要求我进行高强度的认知活动。",
-                "在刚才的创作过程中，我感到了明显的心理压力、烦躁或受挫。",
-                "对我而言，这项小说构思任务是非常困难的。",
-                "完成这项创作任务让我感到筋疲力尽。"
+                "在刚才的创作过程中，我感到了明显的心理压力、烦躁或受挫。"
             ];
-            const midAnswers = ref([
-                { likert: Array(6).fill(null), grid_x: null, grid_y: null },
-                { likert: Array(6).fill(null), grid_x: null, grid_y: null },
-                { likert: Array(6).fill(null), grid_x: null, grid_y: null }
-            ]);
 
-            const posttestOpenQuestions = [
-                "在三次创作过程中，您是否感觉到某一次或某几次任务进行得特别流畅（即产生了“心流”体验）？或者特别卡顿（即产生了“认知枯竭”）？请描述您当时的主观感受。",
-                "（如适用）您如何评价AI助手/系统干预对您创作状态的影响？它在何时提供了帮助，或在何时造成了打扰？",
-                "比较三次不同人物遭遇的构思过程，您觉得最困难的是哪一次？为什么？",
-                "关于本系统的使用体验或本次实验的设计，您有任何其他想分享的反馈或建议吗？"
+            // 后测：全局创造力评估 (共 3 题，所有组必填)
+            const posttestGeneralQuestions = [
+                "我认为自己具备运用创意解决复杂写作难题的能力。",
+                "我认为自己擅长构思新颖独特的情节或设定。",
+                "我善于在他人已有想法的基础上，作进一步的拓展与深化。"
             ];
-            const postAnswers = ref({ likert: Array(6).fill(null), grid_x: null, grid_y: null, open: ["", "", "", ""] });
+
+            // 后测：系统体验评估 (共 25 题，仅组2、组3填写)
+            const posttestAIQuestions = [
+                "我非常乐意在未来的日常创作中高频次地使用本系统。",
+                "我十分享受使用本系统进行协同创作的整体过程。",
+                "借助本系统，我能够轻松且发散地探索多种不同的故事设定或剧情走向。",
+                "本系统在协助我追踪、记录并延展不同灵感分支方面发挥了关键作用。",
+                "在本系统的介入与辅助下，我依然能够充分发挥个人的核心创造力。",
+                "本系统使我能够充分地表达我内在的创作意图。",
+                "我的注意力能够高度集中于小说文本本身，甚至时常意识不到辅助系统的存在。",
+                "我完全沉浸于故事构建中，系统的干预并未破坏我的沉浸感。",
+                "我对使用本系统所产出的最终故事文本感到满意。",
+                "我所获得的最终创作成果，完全值得我付出的努力。",
+                "在整个协同创作过程中，我始终完全掌控着故事发展的核心方向。",
+                "我是我的创作行为及其文本结果的唯一主导者。",
+                "我的每一次剧情抉择都完全取决于我个人的自由意志。",
+                "是否采纳系统建议以及何时推进剧情的决定权，始终牢牢掌握在我手中。",
+                "我的整体创作进程从始至终都由我个人规划与把控。",
+                "我认为自己应当对当前故事的所有情节走向负完全的作者责任。",
+                "我感觉自己仅仅是本系统执行预设程序的“打字工具”。",
+                "我的部分创作行为似乎是在没有我明确意图的情况下被系统引导或触发的。",
+                "我产出的故事结局或情节走向有时让我自己都感到意外或不受控。",
+                "在系统强行介入时，我觉得自己更像是一个被动接受指令的从属者，而非主动创作者。",
+                "系统介入与弹出提示的时机过于生硬，强行割裂了我原本连贯的创作思路。",
+                "在处理完系统的提示或建议后，我需要耗费大量的认知资源才能重新衔接上刚才的情节状态。",
+                "系统提供灵感建议的方式极其自然，仿佛是创作环境与故事世界本身的一部分。",
+                "向系统传递我的创作需求并获取有效反馈，是一个极其繁琐且消耗精力的过程。",
+                "总体而言，在执行写作任务时收到系统的介入提示，让我感到明显的厌烦与受到干扰。"
+            ];
+
+            // 初始化数据结构 (注意：postAnswers 结构也更新了)
+            const preAnswers = ref(Array(30).fill(null));
+            const midAnswers = ref([
+                { likert: Array(4).fill(null), grid_x: null, grid_y: null },
+                { likert: Array(4).fill(null), grid_x: null, grid_y: null },
+                { likert: Array(4).fill(null), grid_x: null, grid_y: null }
+            ]);
+            const postAnswers = ref({
+                general: Array(3).fill(null),
+                ai_eval: Array(25).fill(null)
+            });
 
             // 🌟 恢复：完整的剧场UI映射函数
             const getRoleName = (role) => {
