@@ -226,48 +226,6 @@
         </div>
     </div>
 
-    <div v-if="stage === 'midtest' || stage === 'posttest'" class="bg-white p-10 rounded-2xl shadow-2xl w-[1000px] mt-4">
-        <h2 class="text-3xl font-bold mb-6 text-center text-blue-900 border-b pb-4">
-            {{ stage === 'midtest' ? `任务 ${currentTaskIdx + 1} 阶段体验评估` : '全流程终极体验后测' }}
-        </h2>
-        <div class="space-y-8">
-            <div class="space-y-4">
-                <div v-for="(q, idx) in midtestQuestions" :key="'mid'+idx" class="bg-gray-50 p-5 rounded-xl">
-                    <p class="font-semibold mb-3">{{idx + 1}}. {{ q }}</p>
-                    <div class="flex justify-between max-w-xl mx-auto">
-                        <label v-for="i in 7" :key="'m_'+i" class="flex flex-col items-center cursor-pointer">
-                            <input type="radio" :name="'mid_'+idx" :value="i" v-model="getCurrentTestRef().likert[idx]" class="w-5 h-5 text-blue-600 mb-1">
-                            <span class="text-sm text-gray-500">{{i}}</span>
-                        </label>
-                    </div>
-                </div>
-            </div>
-            <div class="bg-slate-50 p-8 rounded-2xl border-2 border-slate-100 flex flex-col items-center">
-                <h3 class="font-bold text-lg mb-2">核心情绪锚定 (Affect Grid)</h3>
-                <div class="relative w-[360px] h-[360px] mt-6">
-                    <div class="w-full h-full grid grid-cols-9 grid-rows-9 border-2 border-gray-800 bg-white shadow-inner">
-                        <template v-for="row in 9" :key="'r'+row">
-                            <div v-for="col in 9" :key="'c'+col"
-                                 @click="selectAffectGrid(col, 10-row)"
-                                 :class="['affect-cell border border-gray-100 cursor-pointer relative',
-                                          getCurrentTestRef().grid_x === col && getCurrentTestRef().grid_y === (10-row) ? 'selected-cell' : '']">
-                            </div>
-                        </template>
-                    </div>
-                </div>
-            </div>
-            <div v-if="stage === 'posttest'" class="space-y-6 pt-6 border-t-2 border-dashed">
-                <div v-for="(q, idx) in posttestOpenQuestions" :key="'post_open'+idx">
-                    <p class="font-bold mb-2">{{idx + 1}}. {{ q }}</p>
-                    <textarea v-model="postAnswers.open[idx]" class="w-full border-2 border-gray-200 rounded-lg p-4 h-32 focus:border-blue-500 outline-none resize-none"></textarea>
-                </div>
-            </div>
-        </div>
-        <div class="mt-8 pt-4 border-t text-center">
-            <button @click="submitTest" class="bg-indigo-600 text-white px-16 py-4 rounded-xl font-bold text-xl hover:bg-indigo-700 shadow-lg">提交进入下阶段</button>
-        </div>
-    </div>
-
     <div v-if="stage === 'midtest'" class="bg-white p-10 rounded-2xl shadow-2xl w-[1000px] mt-4">
         <h2 class="text-3xl font-bold mb-6 text-center text-green-700 border-b pb-4">任务 {{ currentTaskIdx + 1 }} 体验反馈</h2>
 
@@ -557,8 +515,9 @@
             };
 
             const submitPretest = () => {
-                if(pretestAnswers.value.includes(null) && !confirm("未答完，强行提交？")) return;
+                if(preAnswers.value.includes(null) && !confirm("未答完，强行提交？")) return;
                 pretestDone.value = true;
+                stage.value = 'baseline_wait'; // 👈 修复4：提交完返回倒计时打坐页面
                 checkBaselineToICA();
             };
 
@@ -710,29 +669,74 @@
 
             const scrollToBottom = () => { nextTick(() => { const el = document.getElementById('chat-container'); if (el) el.scrollTop = el.scrollHeight; }); };
 
+
             const submitTest = async () => {
-                const tr = getCurrentTestRef();
-                if ((tr.likert && tr.likert.includes(null)) || !tr.grid_x) {
-                    if(!confirm("表单未填完整，强行跳过？")) return;
+                // 1. 前测校验
+                if (stage.value === 'pretest') {
+                    if (preAnswers.value.includes(null)) {
+                        if (!confirm("前测问卷未填完整，强行跳过？")) return;
+                    }
+                    stage.value = 'ica_review'; // 👈 修复5：正确跳转到 ICA 排雷页面
                 }
-                if (stage.value === 'midtest') {
+                // 2. 中测校验
+                else if (stage.value === 'midtest') {
+                    const tr = midAnswers.value[currentTaskIdx.value];
+                    if (tr.likert.includes(null) || !tr.grid_x) {
+                        if (!confirm("本阶段问卷未填完整，强行跳过？")) return;
+                    }
+
+                    // 保存阶段数据
+                    await savePartialTask();
+
+                    // 推进任务或进入后测
                     if (currentTaskIdx.value < 2) {
+                        currentTaskIdx.value++;
                         stage.value = 'rest';
-                        restTimer.value = 120;
-                        document.body.style.setProperty('--app-bg-color', '#0f172a');
-                        timerInterval = setInterval(() => {
-                            restTimer.value--;
-                            if (restTimer.value <= 0) { clearInterval(timerInterval); currentTaskIdx.value++; startMainTask(); }
-                        }, 1000);
-                    } else { stage.value = 'posttest'; }
-                } else if (stage.value === 'posttest') {
+                    } else {
+                        stage.value = 'posttest';
+                    }
+                }
+                // 3. 后测校验
+                else if (stage.value === 'posttest') {
+                    let isComplete = !postAnswers.value.general.includes(null);
+
+                    // AI组和AGentle组需要额外校验第二部分
+                    if (config.value.group > 1) {
+                        if (postAnswers.value.ai_eval.includes(null)) isComplete = false;
+                    }
+
+                    if (!isComplete && !confirm("后测问卷未填完整，强行提交？")) return;
+
+                    // 保存终极数据
                     await saveUltimateData();
                     stage.value = 'done';
                 }
             };
 
+            // 👈 修复3：补充缺失的分阶段备份函数
+            const savePartialTask = async () => {
+                try {
+                    const payload = {
+                        sub_id: config.value.sub_id,
+                        task_id: currentTaskIdx.value + 1,
+                        text: texts.value[currentTaskIdx.value],
+                        keystrokes: keyLogs.value[currentTaskIdx.value],
+                        chat_log: chats.value[currentTaskIdx.value],
+                        survey_mid: midAnswers.value[currentTaskIdx.value]
+                    };
+                    await fetch('http://127.0.0.1:8000/api/save_partial_task', {
+                        method: 'POST',
+                        headers: {'Content-Type': 'application/json'},
+                        body: JSON.stringify(payload)
+                    });
+                    console.log(`任务 ${currentTaskIdx.value + 1} 阶段数据已自动备份`);
+                } catch (e) {
+                    console.error("阶段备份失败:", e);
+                }
+            };
+
             const saveUltimateData = async () => {
-                const payload = { metadata: config.value, pretest: pretestAnswers.value, tasks: [] };
+                const payload = { metadata: config.value, pretest: preAnswers.value, tasks: [] };
                 for(let i=0; i<3; i++){
                     payload.tasks.push({
                         task_id: i + 1, final_text: texts.value[i], keystrokes: keyLogs.value[i],
@@ -754,8 +758,8 @@
                 engineStarted, configSaved,
 
                 // 问卷与测验数据
-                pretestDone, pretestQuestions, pretestAnswers,
-                midtestQuestions, midAnswers, posttestOpenQuestions, postAnswers,
+                pretestDone, pretestQuestions, preAnswers,
+                midtestQuestions, midAnswers, posttestGeneralQuestions, posttestAIQuestions, postAnswers, // 👈 修复2：更新抛出的变量名
 
                 // ICA 与 创作区数据
                 icaImageUrl, icaExcludes, texts, chats, chatInput, isState0, envHighlightText,
@@ -768,7 +772,8 @@
 
                 // 🌟 新增的拆分后的函数 (取代了 submitICAAndStartTask)
                 submitICAConfig,
-                goToTaskOne
+                goToTaskOne,
+                savePartialTask
             };
         }
     }).mount('#app');
