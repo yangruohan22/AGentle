@@ -10,6 +10,7 @@ from pydantic import BaseModel
 from openai import AsyncOpenAI
 from datetime import datetime
 import os
+import subprocess
 
 # ================= 新增：引入 LSL 库 =================
 try:
@@ -88,6 +89,7 @@ async def start_baseline(data: SetupData):
 
 
 # ================= 新增：前端用来轮询进程是否彻底结束的接口 =================
+
 @app.get("/api/check_baseline_status")
 async def check_baseline_status():
     global active_baseline_process
@@ -96,9 +98,20 @@ async def check_baseline_status():
 
     ret_code = active_baseline_process.poll()
     if ret_code is None:
-        return {"status": "running"}  # 进程还在跑，画图还没彻底完成
+        return {"status": "running"}
     else:
-        return {"status": "done"}  # 进程彻底结束，图片100%安全落盘！
+        # ✅ 基线录制彻底结束，自动拉起基线特征计算脚本！
+        try:
+            sub_id = active_baseline_process.args[2] # 获取刚才启动时的 sub_id
+            cwd_path = os.path.abspath(os.path.dirname(__file__))
+            print(f"🚀 正在自动计算被试 {sub_id} 的 Base 基线均值 JSON...")
+            # 阻塞运行，确保算完基线再通知前端完成
+            subprocess.run(["python", "generate_base_means.py", sub_id], cwd=cwd_path)
+        except Exception as e:
+            print(f"⚠️ 自动触发基线计算失败: {e}")
+
+        active_baseline_process = None
+        return {"status": "done"}
 
 class ICAExcludes(BaseModel):
     sub_id: str

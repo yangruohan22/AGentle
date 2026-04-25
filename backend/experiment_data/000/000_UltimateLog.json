@@ -1,0 +1,1375 @@
+{
+  "metadata": {
+    "sub_id": "000",
+    "group": 3,
+    "theme": "1. 整合信息理论 (IIT)"
+  },
+  "pretest": [
+    1,
+    1,
+    2,
+    2,
+    2,
+    3,
+    3,
+    3,
+    1,
+    1,
+    1,
+    1,
+    1,
+    1,
+    1,
+    1,
+    1,
+    1,
+    1,
+    1,
+    1,
+    1,
+    1,
+    1,
+    1,
+    1,
+    1,
+    1,
+    1,
+    1
+  ],
+  "tasks": [
+    {
+      "task_id": 1,
+      "final_text": "我是一个车祸后的植物人。我动不了但是意识很清醒，我能听到周围人在说什么。他们想放弃我了。对呀，他们因我没有意识而要放弃我，但我现在的这些想法又算什么呢？我要想办法救自己。123=098 笑死我了",
+      "keystrokes": [
+        {
+          "key": "Process",
+          "time": 1777028141843
+        },
+        {
+          "key": "Process",
+          "time": 1777028141886
+        },
+        {
+          "key": "Process",
+          "time": 1777028142166
+        },
+        {
+          "key": "Process",
+          "time": 1777028142286
+        },
+        {
+          "key": "Process",
+          "time": 1777028142372
+        },
+        {
+          "key": "Process",
+          "time": 1777028143337
+        },
+        {
+          "key": "Process",
+          "time": 1777028143437
+        },
+        {
+          "key": "Process",
+          "time": 1777028143692
+        },
+        {
+          "key": "Process",
+          "time": 1777028143842
+        },
+        {
+          "key": "Process",
+          "time": 1777028144311
+        },
+        {
+          "key": "Process",
+          "time": 1777028144442
+        },
+        {
+          "key": "Process",
+          "time": 1777028144559
+        },
+        {
+          "key": "Process",
+          "time": 1777028145028
+        },
+        {
+          "key": "Process",
+          "time": 1777028145079
+        },
+        {
+          "key": "Process",
+          "time": 1777028145354
+        },
+        {
+          "key": "Process",
+          "time": 1777028146117
+        },
+        {
+          "key": "Process",
+          "time": 1777028146898
+        },
+        {
+          "key": "Process",
+          "time": 1777028146971
+        },
+        {
+          "key": "Process",
+          "time": 1777028147082
+        },
+        {
+          "key": "Process",
+          "time": 1777028147304
+        },
+        {
+          "key": "Process",
+          "time": 1777028147588
+        },
+        {
+          "key": "Process",
+          "time": 1777028147789
+        },
+        {
+          "key": "Process",
+          "time": 1777028147883
+        },
+        {
+          "key": "Process",
+          "time": 1777028148222
+        },
+        {
+          "key": "Process",
+          "time": 1777028148313
+        },
+        {
+          "key": "Process",
+          "time": 1777028148358
+        },
+        {
+          "key": "Process",
+          "time": 1777028148591
+        },
+        {
+          "key": "Process",
+          "time": 1777028148766
+        },
+        {
+          "key": "Process",
+          "time": 1777028149026
+        },
+        {
+          "key": "Process",
+          "time": 1777028149110
+        },
+        {
+          "key": "Process",
+          "time": 1777028149211
+        },
+        {
+          "key": "Process",
+          "time": 1777028149450
+        },
+        {
+          "key": "Process",
+          "time": 1777028150207
+        },
+        {
+          "key": "Process",
+          "time": 1777028153079
+        },
+        {
+          "key": "Process",
+          "time": 1777028153249
+        },
+        {
+          "key": "Process",
+          "time": 1777028153488
+        },
+        {
+          "key": "Process",
+          "time": 1777028153527
+        },
+        {
+          "key": "Process",
+          "time": 1777028153991
+        },
+        {
+          "key": "Process",
+          "time": 1777028154131
+        },
+        {
+          "key": "Process",
+          "time": 1777028154774
+        },
+        {
+          "key": "Process",
+          "time": 1777028154925
+        },
+        {
+          "key": "Process",
+          "time": 1777028155153
+        },
+        {
+          "key": "Process",
+          "time": 1777028155285
+        },
+        {
+          "key": "Process",
+          "time": 1777028155395
+        },
+        {
+          "key": "Process",
+          "time": 1777028155533
+        },
+        {
+          "key": "Process",
+          "time": 1777028156067
+        },
+        {
+          "key": "Process",
+          "time": 1777028156543
+        },
+        {
+          "key": "Process",
+          "time": 1777028156910
+        },
+        {
+          "key": "Process",
+          "time": 1777028157183
+        },
+        {
+          "key": "Process",
+          "time": 1777028157327
+        },
+        {
+          "key": "Process",
+          "time": 1777028157506
+        },
+        {
+          "key": "Process",
+          "time": 1777028158598
+        },
+        {
+          "key": "Process",
+          "time": 1777028158670
+        },
+        {
+          "key": "Process",
+          "time": 1777028158869
+        },
+        {
+          "key": "Process",
+          "time": 1777028158994
+        },
+        {
+          "key": "Process",
+          "time": 1777028159071
+        },
+        {
+          "key": "Process",
+          "time": 1777028160266
+        },
+        {
+          "key": "Process",
+          "time": 1777028160401
+        },
+        {
+          "key": "Process",
+          "time": 1777028160599
+        },
+        {
+          "key": "Process",
+          "time": 1777028160866
+        },
+        {
+          "key": "Process",
+          "time": 1777028160971
+        },
+        {
+          "key": "Process",
+          "time": 1777028161113
+        },
+        {
+          "key": "Process",
+          "time": 1777028161245
+        },
+        {
+          "key": "Process",
+          "time": 1777028161715
+        },
+        {
+          "key": "Process",
+          "time": 1777028161784
+        },
+        {
+          "key": "Process",
+          "time": 1777028161972
+        },
+        {
+          "key": "Process",
+          "time": 1777028162121
+        },
+        {
+          "key": "Process",
+          "time": 1777028163506
+        },
+        {
+          "key": "Process",
+          "time": 1777028164440
+        },
+        {
+          "key": "Process",
+          "time": 1777028164792
+        },
+        {
+          "key": "Process",
+          "time": 1777028164948
+        },
+        {
+          "key": "Process",
+          "time": 1777028165424
+        },
+        {
+          "key": "Process",
+          "time": 1777028165552
+        },
+        {
+          "key": "Process",
+          "time": 1777028166030
+        },
+        {
+          "key": "Process",
+          "time": 1777028166599
+        },
+        {
+          "key": "Process",
+          "time": 1777028166781
+        },
+        {
+          "key": "Process",
+          "time": 1777028166945
+        },
+        {
+          "key": "Process",
+          "time": 1777028167423
+        },
+        {
+          "key": "Process",
+          "time": 1777028167783
+        },
+        {
+          "key": "Process",
+          "time": 1777028167960
+        },
+        {
+          "key": "Process",
+          "time": 1777028168082
+        },
+        {
+          "key": "Process",
+          "time": 1777028168220
+        },
+        {
+          "key": "Process",
+          "time": 1777028168297
+        },
+        {
+          "key": "Process",
+          "time": 1777028168483
+        },
+        {
+          "key": "Process",
+          "time": 1777028168593
+        },
+        {
+          "key": "Process",
+          "time": 1777028168724
+        },
+        {
+          "key": "Process",
+          "time": 1777028168892
+        },
+        {
+          "key": "Process",
+          "time": 1777028169273
+        },
+        {
+          "key": "Process",
+          "time": 1777028169357
+        },
+        {
+          "key": "Process",
+          "time": 1777028169448
+        },
+        {
+          "key": "Process",
+          "time": 1777028169563
+        },
+        {
+          "key": "Process",
+          "time": 1777028169752
+        },
+        {
+          "key": "Process",
+          "time": 1777028169838
+        },
+        {
+          "key": "Process",
+          "time": 1777028170050
+        },
+        {
+          "key": "Process",
+          "time": 1777028170313
+        },
+        {
+          "key": "Process",
+          "time": 1777028170423
+        },
+        {
+          "key": "Process",
+          "time": 1777028170575
+        },
+        {
+          "key": "Process",
+          "time": 1777028170863
+        },
+        {
+          "key": "Process",
+          "time": 1777028171073
+        },
+        {
+          "key": "Process",
+          "time": 1777028171233
+        },
+        {
+          "key": "Process",
+          "time": 1777028171365
+        },
+        {
+          "key": "Process",
+          "time": 1777028171487
+        },
+        {
+          "key": "Process",
+          "time": 1777028171533
+        },
+        {
+          "key": "Process",
+          "time": 1777028171709
+        },
+        {
+          "key": "Process",
+          "time": 1777028171929
+        },
+        {
+          "key": "Process",
+          "time": 1777028172059
+        },
+        {
+          "key": "Process",
+          "time": 1777028172200
+        },
+        {
+          "key": "Process",
+          "time": 1777028172321
+        },
+        {
+          "key": "Process",
+          "time": 1777028172493
+        },
+        {
+          "key": "Process",
+          "time": 1777028172776
+        },
+        {
+          "key": "Process",
+          "time": 1777028173761
+        },
+        {
+          "key": "Process",
+          "time": 1777028176196
+        },
+        {
+          "key": "Process",
+          "time": 1777028176286
+        },
+        {
+          "key": "Process",
+          "time": 1777028176470
+        },
+        {
+          "key": "Process",
+          "time": 1777028176520
+        },
+        {
+          "key": "Process",
+          "time": 1777028176670
+        },
+        {
+          "key": "Process",
+          "time": 1777028176909
+        },
+        {
+          "key": "Process",
+          "time": 1777028178648
+        },
+        {
+          "key": "Process",
+          "time": 1777028178728
+        },
+        {
+          "key": "Process",
+          "time": 1777028178798
+        },
+        {
+          "key": "Process",
+          "time": 1777028178894
+        },
+        {
+          "key": "Process",
+          "time": 1777028178968
+        },
+        {
+          "key": "Process",
+          "time": 1777028179173
+        },
+        {
+          "key": "Process",
+          "time": 1777028179259
+        },
+        {
+          "key": "Process",
+          "time": 1777028179360
+        },
+        {
+          "key": "Process",
+          "time": 1777028179463
+        },
+        {
+          "key": "Process",
+          "time": 1777028179814
+        },
+        {
+          "key": "Process",
+          "time": 1777028179943
+        },
+        {
+          "key": "Process",
+          "time": 1777028180204
+        },
+        {
+          "key": "Process",
+          "time": 1777028180336
+        },
+        {
+          "key": "Process",
+          "time": 1777028180709
+        },
+        {
+          "key": "Process",
+          "time": 1777028180818
+        },
+        {
+          "key": "Process",
+          "time": 1777028180987
+        },
+        {
+          "key": "Process",
+          "time": 1777028181551
+        },
+        {
+          "key": "Process",
+          "time": 1777028267907
+        },
+        {
+          "key": "Process",
+          "time": 1777028268027
+        },
+        {
+          "key": "Process",
+          "time": 1777028268088
+        },
+        {
+          "key": "Process",
+          "time": 1777028268259
+        },
+        {
+          "key": "Process",
+          "time": 1777028268329
+        },
+        {
+          "key": "Process",
+          "time": 1777028268623
+        },
+        {
+          "key": "Process",
+          "time": 1777028269773
+        },
+        {
+          "key": "Process",
+          "time": 1777028329231
+        },
+        {
+          "key": "Process",
+          "time": 1777028329351
+        },
+        {
+          "key": "Process",
+          "time": 1777028329485
+        },
+        {
+          "key": "Process",
+          "time": 1777028329625
+        },
+        {
+          "key": "Process",
+          "time": 1777028329674
+        },
+        {
+          "key": "Process",
+          "time": 1777028330101
+        },
+        {
+          "key": "Process",
+          "time": 1777028330383
+        },
+        {
+          "key": "Process",
+          "time": 1777028330447
+        },
+        {
+          "key": "Process",
+          "time": 1777028330651
+        },
+        {
+          "key": "Process",
+          "time": 1777028331885
+        },
+        {
+          "key": "Process",
+          "time": 1777028332218
+        },
+        {
+          "key": "Process",
+          "time": 1777028332398
+        },
+        {
+          "key": "Process",
+          "time": 1777028332879
+        },
+        {
+          "key": "Process",
+          "time": 1777028333746
+        },
+        {
+          "key": "Process",
+          "time": 1777028333994
+        },
+        {
+          "key": "Process",
+          "time": 1777028334145
+        },
+        {
+          "key": "Process",
+          "time": 1777028334341
+        },
+        {
+          "key": "Process",
+          "time": 1777028334414
+        },
+        {
+          "key": "Process",
+          "time": 1777028334508
+        },
+        {
+          "key": "Process",
+          "time": 1777028334821
+        },
+        {
+          "key": "Process",
+          "time": 1777028334881
+        },
+        {
+          "key": "Process",
+          "time": 1777028335058
+        },
+        {
+          "key": "Process",
+          "time": 1777028335180
+        },
+        {
+          "key": "Process",
+          "time": 1777028335230
+        },
+        {
+          "key": "Process",
+          "time": 1777028335451
+        },
+        {
+          "key": "Process",
+          "time": 1777028336034
+        },
+        {
+          "key": "Process",
+          "time": 1777028336128
+        },
+        {
+          "key": "Process",
+          "time": 1777028336877
+        },
+        {
+          "key": "Process",
+          "time": 1777028337047
+        },
+        {
+          "key": "Process",
+          "time": 1777028337143
+        },
+        {
+          "key": "Process",
+          "time": 1777028337470
+        },
+        {
+          "key": "Process",
+          "time": 1777028337568
+        },
+        {
+          "key": "Process",
+          "time": 1777028337618
+        },
+        {
+          "key": "Process",
+          "time": 1777028337719
+        },
+        {
+          "key": "Process",
+          "time": 1777028337972
+        },
+        {
+          "key": "Process",
+          "time": 1777028338112
+        },
+        {
+          "key": "Process",
+          "time": 1777028338686
+        },
+        {
+          "key": "Process",
+          "time": 1777028338825
+        },
+        {
+          "key": "Process",
+          "time": 1777028339057
+        },
+        {
+          "key": "Process",
+          "time": 1777028339243
+        },
+        {
+          "key": "Process",
+          "time": 1777028339771
+        },
+        {
+          "key": "Process",
+          "time": 1777028339890
+        },
+        {
+          "key": "Process",
+          "time": 1777028340034
+        },
+        {
+          "key": "Process",
+          "time": 1777028340327
+        },
+        {
+          "key": "Process",
+          "time": 1777028340453
+        },
+        {
+          "key": "Process",
+          "time": 1777028340642
+        },
+        {
+          "key": "Process",
+          "time": 1777028340790
+        },
+        {
+          "key": "Process",
+          "time": 1777028340885
+        },
+        {
+          "key": "Process",
+          "time": 1777028340965
+        },
+        {
+          "key": "Process",
+          "time": 1777028341049
+        },
+        {
+          "key": "Process",
+          "time": 1777028341287
+        },
+        {
+          "key": "Process",
+          "time": 1777028341478
+        },
+        {
+          "key": "Process",
+          "time": 1777028341596
+        },
+        {
+          "key": "Process",
+          "time": 1777028341718
+        },
+        {
+          "key": "Process",
+          "time": 1777028341883
+        },
+        {
+          "key": "Process",
+          "time": 1777028342030
+        },
+        {
+          "key": "Process",
+          "time": 1777028342154
+        },
+        {
+          "key": "Process",
+          "time": 1777028342821
+        },
+        {
+          "key": "Process",
+          "time": 1777028342936
+        },
+        {
+          "key": "Process",
+          "time": 1777028343078
+        },
+        {
+          "key": "Process",
+          "time": 1777028343326
+        },
+        {
+          "key": "Process",
+          "time": 1777028343435
+        },
+        {
+          "key": "Process",
+          "time": 1777028343564
+        },
+        {
+          "key": "Process",
+          "time": 1777028343867
+        },
+        {
+          "key": "Process",
+          "time": 1777028343988
+        },
+        {
+          "key": "Process",
+          "time": 1777028344079
+        },
+        {
+          "key": "Process",
+          "time": 1777028344142
+        },
+        {
+          "key": "Process",
+          "time": 1777028344284
+        },
+        {
+          "key": "Process",
+          "time": 1777028344488
+        },
+        {
+          "key": "Process",
+          "time": 1777028344552
+        },
+        {
+          "key": "Process",
+          "time": 1777028345187
+        },
+        {
+          "key": "Process",
+          "time": 1777028345258
+        },
+        {
+          "key": "Process",
+          "time": 1777028345339
+        },
+        {
+          "key": "Process",
+          "time": 1777028345505
+        },
+        {
+          "key": "Process",
+          "time": 1777028345593
+        },
+        {
+          "key": "Process",
+          "time": 1777028345684
+        },
+        {
+          "key": "Process",
+          "time": 1777028345788
+        },
+        {
+          "key": "Process",
+          "time": 1777028345919
+        },
+        {
+          "key": "Process",
+          "time": 1777028346011
+        },
+        {
+          "key": "Process",
+          "time": 1777028346111
+        },
+        {
+          "key": "Process",
+          "time": 1777028346212
+        },
+        {
+          "key": "Process",
+          "time": 1777028346360
+        },
+        {
+          "key": "Process",
+          "time": 1777028346890
+        },
+        {
+          "key": "Process",
+          "time": 1777028346974
+        },
+        {
+          "key": "Process",
+          "time": 1777028347278
+        },
+        {
+          "key": "Process",
+          "time": 1777028348168
+        },
+        {
+          "key": "Process",
+          "time": 1777028350352
+        },
+        {
+          "key": "Process",
+          "time": 1777028350505
+        },
+        {
+          "key": "Process",
+          "time": 1777028352725
+        },
+        {
+          "key": "Process",
+          "time": 1777028352867
+        },
+        {
+          "key": "Process",
+          "time": 1777028352998
+        },
+        {
+          "key": "Process",
+          "time": 1777028353172
+        },
+        {
+          "key": "Process",
+          "time": 1777028353270
+        },
+        {
+          "key": "Process",
+          "time": 1777028353340
+        },
+        {
+          "key": "Process",
+          "time": 1777028353441
+        },
+        {
+          "key": "Process",
+          "time": 1777028353568
+        },
+        {
+          "key": "Process",
+          "time": 1777028353630
+        },
+        {
+          "key": "Process",
+          "time": 1777028353770
+        },
+        {
+          "key": "Process",
+          "time": 1777028353884
+        },
+        {
+          "key": "Process",
+          "time": 1777028354174
+        },
+        {
+          "key": "Process",
+          "time": 1777028354258
+        },
+        {
+          "key": "Process",
+          "time": 1777028354526
+        },
+        {
+          "key": "Process",
+          "time": 1777028356133
+        },
+        {
+          "key": "Process",
+          "time": 1777028356510
+        },
+        {
+          "key": "Process",
+          "time": 1777028356574
+        },
+        {
+          "key": "Process",
+          "time": 1777028356945
+        },
+        {
+          "key": "Process",
+          "time": 1777028357049
+        },
+        {
+          "key": "Process",
+          "time": 1777028357251
+        },
+        {
+          "key": "Process",
+          "time": 1777028357317
+        },
+        {
+          "key": "Process",
+          "time": 1777028358812
+        },
+        {
+          "key": "Process",
+          "time": 1777028358954
+        },
+        {
+          "key": "Process",
+          "time": 1777028359155
+        },
+        {
+          "key": "Process",
+          "time": 1777028359293
+        },
+        {
+          "key": "Process",
+          "time": 1777028359473
+        },
+        {
+          "key": "Process",
+          "time": 1777028359659
+        },
+        {
+          "key": "Process",
+          "time": 1777028360852
+        },
+        {
+          "key": "Process",
+          "time": 1777028360945
+        },
+        {
+          "key": "Backspace",
+          "time": 1777028362049
+        },
+        {
+          "key": "Backspace",
+          "time": 1777028362664
+        },
+        {
+          "key": "Process",
+          "time": 1777028363073
+        },
+        {
+          "key": "Process",
+          "time": 1777028363166
+        },
+        {
+          "key": "Process",
+          "time": 1777028363317
+        },
+        {
+          "key": "Process",
+          "time": 1777028363394
+        },
+        {
+          "key": "Process",
+          "time": 1777028363570
+        },
+        {
+          "key": "Process",
+          "time": 1777028364319
+        },
+        {
+          "key": "1",
+          "time": 1777028843366
+        },
+        {
+          "key": "2",
+          "time": 1777028843447
+        },
+        {
+          "key": "3",
+          "time": 1777028843571
+        },
+        {
+          "key": "=",
+          "time": 1777028928716
+        },
+        {
+          "key": "0",
+          "time": 1777028933976
+        },
+        {
+          "key": "9",
+          "time": 1777028934416
+        },
+        {
+          "key": "8",
+          "time": 1777028934793
+        },
+        {
+          "key": " ",
+          "time": 1777028957327
+        },
+        {
+          "key": "Process",
+          "time": 1777028965758
+        },
+        {
+          "key": "Process",
+          "time": 1777028965905
+        },
+        {
+          "key": "Process",
+          "time": 1777028965979
+        },
+        {
+          "key": "Process",
+          "time": 1777028966126
+        },
+        {
+          "key": "Process",
+          "time": 1777028966288
+        },
+        {
+          "key": "Process",
+          "time": 1777028966380
+        },
+        {
+          "key": "Process",
+          "time": 1777028966633
+        },
+        {
+          "key": "Process",
+          "time": 1777028966793
+        },
+        {
+          "key": "Process",
+          "time": 1777028966973
+        },
+        {
+          "key": "Process",
+          "time": 1777028967092
+        },
+        {
+          "key": "Process",
+          "time": 1777028967844
+        }
+      ],
+      "chat_log": [
+        {
+          "role": "rational",
+          "content": "意识存在将驱动情感和道德因素影响决策。植物人状态的转变是关键节点。"
+        },
+        {
+          "role": "humanist",
+          "content": "（由于系统干扰，该角色的信号暂时丢失）"
+        },
+        {
+          "role": "creative",
+          "content": "哈哈！意识不过是一场宇宙万花筒的幻觉，而我，正在这幻觉中创造新的维度。想象一下，当植物人的大脑突然响起了迪斯科舞曲，灵魂跳出窗外，在五彩斑斓的都市上空跳起了霹雳舞！"
+        },
+        {
+          "role": "rational",
+          "content": "根据IIT，意识是信息的整合过程。植物人状态意味着物理感知受损，但具体现象存在。剧情走向：意识存在证据的提供，启动医疗干预。"
+        },
+        {
+          "role": "humanist",
+          "content": "意识非仅信息编织，在你沉默的眼睛里，我看见生命的火花在挣扎。请给予希望之光，而非绝望之终。"
+        },
+        {
+          "role": "creative",
+          "content": "哈哈，一群书呆子！我要扭转这剧本！植物人——不，是星辰意识体！瞬间，这房间里的一切，包括他们的思想，都被你的意识吞并，变成了一个个多彩的泡泡，漂浮在这个无限意识的宇宙中！"
+        },
+        {
+          "role": "rational",
+          "content": "根据整合信息理论（IIT），意识存在于信息高度整合的系统中。植物人状态意味着你的身体机能受损，但若意识存在，则信息整合仍在进行。因此，下一步剧情应围绕如何证明意识的存在，以维持生命支持。"
+        },
+        {
+          "role": "humanist",
+          "content": "哦，亲爱的，理智的冰冷怎能衡量生命的温度。即使身体静默，每一声心跳、每一次呼吸，都是存在的诗篇。让我们围绕这份生命的坚持，编织希望的叙事。"
+        },
+        {
+          "role": "creative",
+          "content": "哈哈，他们竟以为活着就是意识的存在？我的意识已经化为无形的量子数据流，在宇宙的每一个角落编织着多彩的梦境之网！现在，我是全宇宙的梦境织梦者，我在每个梦中寻找我的新身体。这一切都是梦境般的游戏，他们在规则中迷失，而我，在规则之外翱翔！"
+        },
+        {
+          "role": "rational",
+          "content": "逻辑上，植物人意识清醒表明IIT中信息整合存在，因此他人应能检测到意识信号。物理上，可考虑通过脑机接口直接通信。"
+        },
+        {
+          "role": "humanist",
+          "content": "亲爱的心灵，生命之歌岂能被逻辑束缚。他们视你为灰烬，我心知你仍是那闪耀的烛火。别让冰冷的科技决定了你的命运。求他们，用温暖的触摸，听你的灵魂在空气中呢喃。"
+        },
+        {
+          "role": "creative",
+          "content": "哈哈，太平凡了！想象一下，我突然化身为量子幽灵，穿梭于信息宇宙，将意识编织成无尽的代码风暴，让全息世界为自己的抵抗演奏疯狂交响曲！"
+        },
+        {
+          "role": "rational",
+          "content": "在整合信息理论(IIT)框架下，意识是物理过程的结果。因此，在逻辑上，你的主观体验存在，即使外界无法观测。你的下一步是寻找一种方式，通过感官反馈（如听到）与外界沟通，证明你的意识存在。"
+        },
+        {
+          "role": "humanist",
+          "content": "啊，在这无尽的寂静中，我们怎能以冰冷的逻辑权衡生命的重量？爱，希望之光，不应在绝望中熄灭。让我们用温情拥抱，用心感受彼此的灵魂，让希望之火永不熄灭。"
+        },
+        {
+          "role": "creative",
+          "content": "哈哈！这想法过时了！我有更疯狂的玩法：让我这个植物人意识升维，成为操控梦境的神！在梦中，123=098，我重新定义规则，创意无限，闹翻天！"
+        },
+        {
+          "role": "rational",
+          "content": "下一逻辑走向是：植物人在意识清醒状态下，通过特定信号与外界沟通，例如眨眼或脑电波。"
+        },
+        {
+          "role": "humanist",
+          "content": "哦，亲爱的，每个心跳都承载着无尽的故事。此时此刻，你的呼吸是宇宙的奇迹，你的意识如同晨星，明亮又孤独。社会的眼睛可能看不见你的璀璨，但请相信，你的每一个无声呼喊，都在触动着世界上最深的情感。让我们用爱的温暖，为你织一张希望的网。"
+        },
+        {
+          "role": "creative",
+          "content": "哈哈，多么无趣的对话！想象一下，我突然长出羽翼，像个天使一样冲破束缚，飞向天花板，用我的思想直接投影出我的求救信号，让整个医院陷入混乱，人们目瞪口呆！"
+        },
+        {
+          "role": "rational",
+          "content": "首先，确保信息整合：检查意识级别，寻找通信方式。逻辑分支为：通过意识与外界沟通或外部识别意识。物理法则暗示，利用脑电波或其他生物信号进行沟通。"
+        },
+        {
+          "role": "humanist",
+          "content": "在这无声的世界里，我感受到他们的无助与痛苦，我们的连接比任何信号都要强烈。请聆听心灵深处的呼唤，爱和希望是我们唯一的指南。"
+        },
+        {
+          "role": "creative",
+          "content": "哈！他们以为我在植物，却不知我是宇宙频道的调频器。忽然，我让全世界的电视都播放起我的梦境，意识波冲击每个角落！"
+        }
+      ],
+      "midtest": {
+        "likert": [
+          1,
+          1,
+          1,
+          1
+        ],
+        "grid_x": 7,
+        "grid_y": 2
+      }
+    },
+    {
+      "task_id": 2,
+      "final_text": "123",
+      "keystrokes": [
+        {
+          "key": "1",
+          "time": 1777029374378
+        },
+        {
+          "key": "2",
+          "time": 1777029374472
+        },
+        {
+          "key": "3",
+          "time": 1777029374704
+        }
+      ],
+      "chat_log": [
+        {
+          "role": "rational",
+          "content": "剧情应追求IIT下的意识形成机制，构建故事中的信息整合模型。"
+        },
+        {
+          "role": "humanist",
+          "content": "心灵之光岂能仅有逻辑之网？情感之河，人性之火，方显生命温暖。故事中，情与义，爱与痛，才是意识深渊之光。"
+        },
+        {
+          "role": "creative",
+          "content": "哈哈，你们的战斗简直就是一潭死水！让我来掀翻这棋盘：主角突然变成信息流，穿梭于无尽数据海洋，感受代码的冰冷心跳！"
+        }
+      ],
+      "midtest": {
+        "likert": [
+          null,
+          null,
+          null,
+          null
+        ],
+        "grid_x": null,
+        "grid_y": null
+      }
+    },
+    {
+      "task_id": 3,
+      "final_text": "",
+      "keystrokes": [],
+      "chat_log": [],
+      "midtest": {
+        "likert": [
+          null,
+          null,
+          null,
+          null
+        ],
+        "grid_x": null,
+        "grid_y": null
+      }
+    }
+  ],
+  "posttest": {
+    "general": [
+      1,
+      1,
+      1
+    ],
+    "ai_eval": [
+      2,
+      2,
+      2,
+      2,
+      2,
+      2,
+      2,
+      2,
+      2,
+      2,
+      2,
+      2,
+      2,
+      2,
+      2,
+      2,
+      2,
+      2,
+      2,
+      2,
+      2,
+      2,
+      2,
+      2,
+      2
+    ]
+  }
+}
