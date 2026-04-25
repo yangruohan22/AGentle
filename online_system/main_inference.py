@@ -1,4 +1,6 @@
 import time
+import threading
+from collections import deque
 import joblib
 import numpy as np
 import pandas as pd
@@ -11,7 +13,7 @@ from scipy.ndimage import binary_closing
 from pylsl import resolve_byprop, StreamInlet
 import warnings
 import os
-import sys  # 👈 修改 1：必须导入 sys 以接收被试编号参数
+import sys
 
 current_dir = os.path.dirname(os.path.abspath(__file__))
 
@@ -29,13 +31,11 @@ EEG_SFREQ = 1000
 PHYSIO_SFREQ = 1000
 ET_SFREQ = 1200
 
-# ================= 1. 动态定位路径与加载配置 (核心修改区) =================
-# 👈 修改 2：接收从 backend/main.py 传过来的 sub_id
+# ================= 1. 动态定位路径与加载配置 =================
 sub_id = sys.argv[1] if len(sys.argv) > 1 else "Unknown"
 print(f"🧠 正在为被试 {sub_id} 唤醒 A-Gentle AI 引擎...")
 
 model_dir = os.path.join(current_dir, "..", "model")
-# 👈 修改 3：定义指向 backend 下被试专属 config 的路径
 backend_config_dir = os.path.join(current_dir, "..", "backend", "experiment_data", sub_id, "config")
 
 # 加载模型
@@ -61,7 +61,7 @@ except Exception as e:
 print(f"✅ 系统就绪！要求对齐 {len(expected_features)} 个特征。")
 
 
-# ================= 2. 实时预处理 (逻辑保持原样) =================
+# ================= 2. 实时预处理 =================
 def preprocess_eeg_realtime(eeg_data_60s):
     ch_names = ['AF3', 'AF4', 'F3', 'F1', 'Fz', 'F2', 'F4', 'Pz']
     info = mne.create_info(ch_names=ch_names, sfreq=EEG_SFREQ, ch_types='eeg')
@@ -78,8 +78,8 @@ def preprocess_eeg_realtime(eeg_data_60s):
             return raw.get_data()
     return raw.get_data()
 
-# ================= 3. 核心特征提取 (保持原样) =================
 
+# ================= 3. 核心特征提取 =================
 def get_eeg_features_full_stream(eeg_raw):
     feat = {}
     try:
@@ -194,68 +194,89 @@ def prepare_and_predict(features_dict):
     return prob_state_1
 
 
-# ================= 5. LSL 三路并发主循环 =================
+# ================= 5. LSL 三路并发主循环 (多线程环形缓冲重构版) =================
 def start_online_inference():
     print("\n📡 正在局域网内寻找数据流...")
 
-    # 修复：使用 resolve_byprop 解决 ImportError
     inlet_eeg = StreamInlet(resolve_byprop('name', 'Neuracle_EEG')[0])
     inlet_physio = StreamInlet(resolve_byprop('name', 'Physio_NI6009')[0])
     inlet_et = StreamInlet(resolve_byprop('name', 'EyeTracker')[0])
     print(f"✅ 成功锁定所有 LSL 流！准备收集第一个 60 秒...")
 
-    eeg_buf, physio_buf, et_buf = [], [], []
-    eeg_win, physio_win, et_win = int(WINDOW_SIZE_SEC * 1000), int(WINDOW_SIZE_SEC * 1000), int(WINDOW_SIZE_SEC * 1200)
-    eeg_step, physio_step, et_step = int(STEP_SIZE_SEC * 1000), int(STEP_SIZE_SEC * 1000), int(STEP_SIZE_SEC * 1200)
+    # 计算各路流 60 秒所需的点数
+    eeg_win = int(WINDOW_SIZE_SEC * EEG_SFREQ)
+    physio_win = int(WINDOW_SIZE_SEC * PHYSIO_SFREQ)
+    et_win = int(WINDOW_SIZE_SEC * ET_SFREQ)
 
+    # 🚀 使用双端队列 (deque) 构建固定长度的环形缓冲区，老数据自动溢出抛弃
+    eeg_buf = deque(maxlen=eeg_win)
+    physio_buf = deque(maxlen=physio_win)
+    et_buf = deque(maxlen=et_win)
+
+    # 🧵 独立后台线程：无阻碍疯狂抓取最新数据
+    def pull_data_worker():
+        while True:
+            e_chunk, _ = inlet_eeg.pull_chunk(timeout=0.0)
+            p_chunk, _ = inlet_physio.pull_chunk(timeout=0.0)
+            et_chunk, _ = inlet_et.pull_chunk(timeout=0.0)
+
+            if e_chunk: eeg_buf.extend(e_chunk)
+            if p_chunk: physio_buf.extend(p_chunk)
+            if et_chunk: et_buf.extend(et_chunk)
+
+            # 极短的休眠，防止拉满单核 CPU
+            time.sleep(0.005)
+
+    threading.Thread(target=pull_data_worker, daemon=True).start()
+
+    print(f"⏳ 正在向水池注水，请等待 {WINDOW_SIZE_SEC} 秒...")
+    # 阻塞主线程，同时打印实时注水进度！
+    while len(eeg_buf) < eeg_win or len(physio_buf) < physio_win or len(et_buf) < et_win:
+        # \r 可以让终端在同一行刷新，不会满屏乱滚
+        print(
+            f"💧 进度监测 -> 脑电: {len(eeg_buf)}/{eeg_win} | 生理: {len(physio_buf)}/{physio_win} | 眼动: {len(et_buf)}/{et_win}      ",
+            end='\r')
+        time.sleep(1)
+    print("\n🚀 缓冲池已满！心流探测引擎正式启动...")
+
+    # ⏱️ 严格计时的决策主循环
     while True:
-        e_chunk, _ = inlet_eeg.pull_chunk(timeout=0.0)
-        p_chunk, _ = inlet_physio.pull_chunk(timeout=0.0)
-        et_chunk, _ = inlet_et.pull_chunk(timeout=0.0)
+        cycle_start = time.time()
 
-        if e_chunk: eeg_buf.extend(e_chunk)
-        if p_chunk: physio_buf.extend(p_chunk)
-        if et_chunk: et_buf.extend(et_chunk)
+        # 1. 瞬间抓取缓冲池当前快照 (转为 array)
+        current_eeg_raw = np.array(eeg_buf).T[:8, :]
+        current_physio = np.array(physio_buf).T
+        current_et = np.array(et_buf)
 
-        if len(eeg_buf) >= eeg_win and len(physio_buf) >= physio_win and len(et_buf) >= et_win:
-            t_start = time.time()
+        # 2. 预处理 (应用手动 ICA)
+        cleaned_eeg = preprocess_eeg_realtime(current_eeg_raw)
 
-            # 切片
-            current_eeg_raw = np.array(eeg_buf[:eeg_win]).T[:8, :]
-            current_physio = np.array(physio_buf[:physio_win]).T
-            current_et = np.array(et_buf[:et_win])
+        # 3. 提取特征
+        all_features = {}
+        all_features.update(get_eeg_features_full_stream(cleaned_eeg))
+        all_features.update(get_gsr_features_stream_optimized(current_physio[0]))
+        all_features.update(get_ecg_features_robust_stream(current_physio[1]))
+        all_features.update(get_et_features_enhanced(current_et))
 
-            # 预处理 (应用手动 ICA)
-            cleaned_eeg = preprocess_eeg_realtime(current_eeg_raw)
+        # 4. 推断
+        flow_prob = prepare_and_predict(all_features)
 
-            # 提取特征
-            all_features = {}
-            all_features.update(get_eeg_features_full_stream(cleaned_eeg))
-            all_features.update(get_gsr_features_stream_optimized(current_physio[0]))
-            all_features.update(get_ecg_features_robust_stream(current_physio[1]))
-            all_features.update(get_et_features_enhanced(current_et))
+        process_time = time.time() - cycle_start
 
-            # 推断
-            flow_prob = prepare_and_predict(all_features)
-            t_end = time.time()
+        if flow_prob >= BEST_THRESHOLD:
+            print(f"[{time.strftime('%H:%M:%S')}] 🟢 心流状态 (Prob: {flow_prob:.2f}) | 计算耗时: {process_time:.2f}s")
+        else:
+            print(
+                f"[{time.strftime('%H:%M:%S')}] 🔴 认知枯竭 (Prob: {flow_prob:.2f}) -> 触发干预报警！ | 计算耗时: {process_time:.2f}s")
+            # 🔥 发送报警至后端，加上 timeout 防止后端卡死阻塞推断引擎
+            try:
+                requests.post("http://127.0.0.1:8000/api/alert_depletion", timeout=1.0)
+            except:
+                pass
 
-            if flow_prob >= BEST_THRESHOLD:
-                print(
-                    f"[{time.strftime('%H:%M:%S')}] 🟢 心流状态 (Prob: {flow_prob:.2f}) | 耗时: {t_end - t_start:.2f}s")
-            else:
-                print(f"[{time.strftime('%H:%M:%S')}] 🔴 认知枯竭 (Prob: {flow_prob:.2f}) -> 触发干预报警！")
-                # 🔥 发送报警至后端
-                try:
-                    requests.post("http://127.0.0.1:8000/api/alert_depletion")
-                except:
-                    pass
-
-            # 滑动窗口
-            eeg_buf = eeg_buf[eeg_step:]
-            physio_buf = physio_buf[physio_step:]
-            et_buf = et_buf[et_step:]
-
-        time.sleep(0.01)
+        # 5. 动态计算补时休眠，严格锁死 5 秒步长！
+        sleep_time = max(0.0, STEP_SIZE_SEC - process_time)
+        time.sleep(sleep_time)
 
 
 if __name__ == '__main__':

@@ -59,7 +59,11 @@ KIMI_API_KEY = "sk-KnNJv6ikxTJV6R2VIXdN1SJ7LBZpzBEW0YcVkHqUTuvclgxB"
 client = AsyncOpenAI(api_key=KIMI_API_KEY, base_url="https://api.moonshot.cn/v1")
 
 active_websockets = []
+active_inference_process = None
+active_baseline_process = None
 
+class InferenceRequest(BaseModel):
+    sub_id: str
 
 class SetupData(BaseModel):
     sub_id: str
@@ -70,13 +74,31 @@ class SetupData(BaseModel):
 
 @app.post("/api/start_baseline")
 async def start_baseline(data: SetupData):
+    global active_baseline_process
     print(f"[{datetime.now().strftime('%H:%M:%S')}] 🚀 开始基线采集 (Sub: {data.sub_id})")
     try:
-        subprocess.Popen(["python", "baseline_recorder.py", data.sub_id, str(data.duration)])
+        # 如果还有上一个没死透的基线进程，先清理掉
+        if active_baseline_process is not None:
+            active_baseline_process.terminate()
+
+        active_baseline_process = subprocess.Popen(["python", "baseline_recorder.py", data.sub_id, str(data.duration)])
     except Exception as e:
         print(f"启动录制脚本失败: {e}")
-    return {"status": "success", "image_url": "/static/current_ica.png"}
+    return {"status": "success"}
 
+
+# ================= 新增：前端用来轮询进程是否彻底结束的接口 =================
+@app.get("/api/check_baseline_status")
+async def check_baseline_status():
+    global active_baseline_process
+    if active_baseline_process is None:
+        return {"status": "idle"}
+
+    ret_code = active_baseline_process.poll()
+    if ret_code is None:
+        return {"status": "running"}  # 进程还在跑，画图还没彻底完成
+    else:
+        return {"status": "done"}  # 进程彻底结束，图片100%安全落盘！
 
 class ICAExcludes(BaseModel):
     sub_id: str
@@ -101,16 +123,24 @@ class InferenceRequest(BaseModel):
 # ================= 新增：一键启动推断引擎 =================
 @app.post("/api/start_inference")
 async def start_inference(data: InferenceRequest):
+    global active_inference_process
     print(f"[{datetime.now().strftime('%H:%M:%S')}] 🧠 为被试 {data.sub_id} 启动心流探测引擎...")
     try:
+        # 🚨 核心防呆：如果有旧的推断进程还在跑，强行终止它！
+        if active_inference_process is not None:
+            print("⚠️ 检测到上一个推断引擎仍在运行，正在强制终止清理水池...")
+            active_inference_process.terminate()
+            active_inference_process.wait()  # 确保彻底死透
+
         cwd_path = os.path.abspath(os.path.join(os.path.dirname(__file__), '..', 'online_system'))
-        # ✅ 将 sub_id 作为参数传给 main_inference.py
-        subprocess.Popen(["python", "main_inference.py", data.sub_id], cwd=cwd_path)
+
+        # 启动全新的进程，此时水池是空的（需要重新注水60秒），且会重新读取最新的 ICA JSON
+        active_inference_process = subprocess.Popen(["python", "main_inference.py", data.sub_id], cwd=cwd_path)
+
         return {"status": "success"}
     except Exception as e:
         print(f"启动失败: {e}")
         return {"status": "error"}
-
 # ================= 修改：分类保存实验数据 =================
 @app.post("/api/save_experiment")
 async def save_experiment(payload: dict):
@@ -242,16 +272,15 @@ async def call_agent(role: str, sys_prompt: str, user_prompt: str):
         print(f"Agent {role} 调用失败: {e}")
         return {"role": role, "content": "（由于系统干扰，该角色的信号暂时丢失）"}
 
-
 async def call_env_agent(theme: str, current_text: str):
     """专门负责返回 JSON 调整环境颜色的主脑"""
-    sys_prompt = """你是一个环境调节主脑。请根据作者正在写作的内容和主题，返回一个JSON来改变网页的背景色和文字颜色。
+    sys_prompt = """你是一个负责控制沉浸式写作环境的AI主脑。请根据作者正在写作的内容情绪和设定的世界观，返回一个JSON来改变整个网页的氛围。
     必须严格返回合法的JSON，格式如下：
     {
-      "bg_color": "#十六进制深沉背景色",
-      "text_color": "#十六进制对比文字色",
-      "glow_color": "rgba(r,g,b, 0.4)",
-      "focus_keyword": "从作者原文中挑出一个能代表当前意境的2-4字短语"
+      "page_bg": "#十六进制颜色码",      // 控制整个网页的最底层大背景（建议暗色调、低饱和度）
+      "box_bg": "#十六进制颜色码",       // 控制文本输入框的背景色（应与page_bg有所区分，但保持协调）
+      "text_color": "#十六进制颜色码",     // 控制文本输入框内的文字颜色（必须保证高对比度，清晰可读）
+      "focus_keyword": "2到4个字"        // 从作者原文的情境中提炼出的核心情绪词或意象词
     }"""
     try:
         resp = await client.chat.completions.create(
@@ -266,9 +295,14 @@ async def call_env_agent(theme: str, current_text: str):
             return json.loads(match.group(0))
     except Exception as e:
         pass
-    return {"bg_color": "#1e293b", "text_color": "#e2e8f0", "glow_color": "rgba(99,102,241,0.3)",
-            "focus_keyword": "深渊凝视"}
 
+    # 默认兜底值
+    return {
+        "page_bg": "#e2e8f0",
+        "box_bg": "#f8fafc",
+        "text_color": "#334155",
+        "focus_keyword": "深渊凝视"
+    }
 
 # ==========================================
 # WebSocket 路由
