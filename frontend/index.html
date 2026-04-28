@@ -86,25 +86,14 @@
         </div>
     </div>
 
-    <div v-if="stage === 'baseline_wait'" class="bg-white p-12 rounded-2xl shadow-xl text-center w-[500px] mt-10">
-        <div class="animate-pulse mb-6">
-            <div class="w-24 h-24 bg-blue-100 rounded-full flex items-center justify-center mx-auto">
-                <span class="text-4xl">🧘</span>
-            </div>
+    <div v-if="stage === 'baseline_typing'" class="bg-white p-10 rounded-2xl shadow-xl w-[800px] mt-10 flex flex-col items-center">
+        <h2 class="text-3xl font-bold text-gray-800 mb-2">基线生理数据校准</h2>
+        <p class="text-5xl font-mono text-blue-600 mb-6">{{ formatTime(baselineTimer) }}</p>
+        <p class="text-gray-600 mb-4 font-semibold">请持续敲击键盘抄写下方文字，保持平常的打字节奏。这很重要，请勿停顿。</p>
+        <div class="w-full bg-gray-50 p-4 rounded-lg border border-gray-200 text-gray-700 mb-6 text-justify leading-relaxed select-none">
+            {{ baselineCopyText }}
         </div>
-        <h2 class="text-3xl font-bold text-gray-800 mb-2">基线数据采集中</h2>
-        <p class="text-5xl font-mono text-blue-600 mb-8">{{ formatTime(baselineTimer) }}</p>
-
-        <div v-if="!pretestDone">
-            <p class="text-gray-500 mb-4">请被试在此期间完成前测问卷</p>
-            <button @click="stage = 'pretest'" class="bg-indigo-600 text-white px-8 py-3 rounded-full hover:bg-indigo-700 font-bold transition">
-                📝 进入前测问卷
-            </button>
-        </div>
-        <div v-else>
-            <p class="text-green-600 font-bold mb-4">✅ 前测问卷已完成</p>
-            <p class="text-sm text-gray-400">等待基线采集结束后自动进入下一阶段...</p>
-        </div>
+        <textarea v-model="baselineInput" rows="6" placeholder="在此处开始打字..." class="w-full border-2 border-gray-300 p-4 rounded-lg focus:border-blue-500 outline-none resize-none text-lg"></textarea>
     </div>
 
     <div v-if="stage === 'pretest'" class="bg-white p-10 rounded-2xl shadow-2xl w-[1000px] mt-4">
@@ -199,17 +188,25 @@
                 <span class="italic bg-indigo-950 px-2 py-1 rounded">{{ envHighlightText }}</span>
             </div>
 
-            <div class="bg-blue-50 border-l-4 border-blue-500 p-3 mx-6 mt-4 rounded-r-lg shadow-sm flex flex-col max-h-32">
-                <h3 class="font-bold text-blue-900 text-sm mb-1">🌍 当前世界观设定：{{ config.theme }}</h3>
-                <div class="overflow-y-auto pr-2 mb-1">
-                    <p class="text-xs text-blue-800 leading-relaxed text-justify">
+            <div class="mx-6 mt-4 p-4 rounded-xl border border-slate-200 bg-slate-50 shadow-sm flex flex-col shrink-0">
+                <h3 class="font-bold text-slate-800 text-sm mb-1.5 flex items-center gap-1.5">
+                    <span>🌍</span> 当前世界观设定：{{ config.theme }}
+                </h3>
+                <div class="overflow-y-auto pr-2 mb-2 max-h-20">
+                    <p class="text-xs text-slate-600 leading-relaxed text-justify">
                         {{ theoryDescriptions[config.theme] }}
                     </p>
                 </div>
-                <p class="text-xs text-red-600 font-bold mt-1 border-t border-blue-200 pt-1">
-                    🎯 创作指引：无需写完整小说。请集中描写一个人物在该世界观下经历关键变故的「片段/场景」，形式、视角不限。
-                </p>
+                <div class="flex flex-col gap-1.5 pt-2.5 border-t border-slate-200/80">
+                    <p class="text-xs text-slate-700">
+                        <span class="text-rose-500 mr-1">🎯</span><span class="font-bold">创作指引：</span>无需写完整小说。请集中描写一个人物在该世界观下经历关键变故的「片段/场景」，形式、视角不限。
+                    </p>
+                    <p class="text-xs text-slate-700 flex items-center">
+                        <span class="text-amber-500 mr-1">💡</span><span class="font-bold">提示：</span>当想到一个好点子的时候请立刻按下 <kbd class="bg-white border border-slate-300 rounded px-1.5 py-0.5 font-mono text-[10px] shadow-sm mx-1 text-slate-800">Ctrl</kbd> 键。
+                    </p>
+                </div>
             </div>
+
             <textarea v-model="texts[currentTaskIdx]"
                       @keydown="logKey"
                       placeholder="请基于所选世界观，构思当前人物的遭遇..."
@@ -221,7 +218,7 @@
         <div v-if="config.group === 2 || config.group === 3" class="w-[500px] flex flex-col bg-white rounded-2xl shadow-2xl border border-gray-200 overflow-hidden">
             <div class="p-4 border-b bg-gradient-to-r from-slate-100 to-slate-200 flex justify-between items-center">
                 <span class="font-bold text-slate-800 flex items-center gap-2">
-                    🎭 A-Gentle 灵感剧场
+                    🎭 {{ config.group === 3 ? 'A-Gentle 灵感剧场' : '写作辅助台' }}
                 </span>
                 <span v-if="config.group===3 && isState0" class="text-xs bg-red-100 text-red-600 px-2 py-1 rounded font-bold animate-pulse">
                     多模态干预中...
@@ -396,6 +393,8 @@
             const icaImageUrl = ref('');
             const icaExcludes = ref('');
             const texts = ref(['', '', '']);
+            const baselineCopyText = ref("燕子去了，有再来的时候；杨柳枯了，有再青的时候；桃花谢了，有再开的时候。但是，聪明的，你告诉我，我们的日子为什么一去不复返呢？——是有人偷了他们罢：那是谁？又藏在何处呢？是他们自己逃走了罢：现在又到了哪里呢？我不知道他们给了我多少日子；但我的手确乎是渐渐空虚了。在默默里算着，八千多日子已经从我手中溜去；像针尖上一滴水滴在大海里，我的日子滴在时间的流里，没有声音，也没有影子。我不禁头涔涔而泪潸潸了。");
+            const baselineInput = ref("");
             const theoryDescriptions = {
                 "1. 整合信息理论 (IIT)": "人类发明了 ϕ 值测量仪，能够精准测算任何物体的意识浓度。结果极其反直觉：系统发现，一片古老交织的地下真菌网络，或者一台极其复杂的城市交通调度AI，其 ϕ 值远高于一个处于深度昏迷的植物人，甚至高于一个刚出生的婴儿。",
                 "2. 量子芝诺效应 (Quantum Zeno)": "人类发现量子芝诺效应在宏观生物学上同样适用。只要一个人被足够多的人持续、无死角地“注视”，他体内的细胞衰变、癌症扩散甚至衰老就会完全停止。这催生了一个病态的产业——“注视贩卖”。",
@@ -419,7 +418,7 @@
             // 打标逻辑
             const sendMarker = async (eventName) => {
                 try {
-                    const absTime = new Date().toISOString();
+                    const absTime = getAbsTime(); // 🌟 直接调用上面写好的本地时间函数
                     await fetch('http://127.0.0.1:8000/api/send_marker', {
                         method: 'POST',
                         headers: {'Content-Type': 'application/json'},
@@ -450,18 +449,18 @@
                 "我喜欢清晰且有条理的生活方式。",
                 "在形成自己的观点之前，我通常不会参考许多不同的意见。",
                 "我讨厌不可预测的情况。",
-                "本AI辅助系统具有欺骗性。",
-                "本AI辅助系统的行为方式不光明正大。",
-                "我怀疑本AI辅助系统的意图、行为或输出。",
-                "我对本AI辅助系统保持警惕。",
-                "本AI辅助系统的行为会导致有害或破坏性的结果。",
-                "我对本AI辅助系统充满信心。",
-                "本AI辅助系统能提供安全感。",
-                "本AI辅助系统具有诚实可靠性。",
-                "本AI辅助系统值得依靠。",
-                "本AI辅助系统是可靠的。",
-                "我可以信任本AI辅助系统。",
-                "我对使用类似于本AI辅助系统的工具具有丰富的经验。"
+                "AI辅助写作的系统（指广泛意义上的AI辅助写作，下同）具有欺骗性。",
+                "AI辅助写作的系统的行为方式不光明正大。",
+                "我怀疑AI辅助写作的系统的意图、行为或输出。",
+                "我对AI辅助写作的系统保持警惕。",
+                "AI辅助写作的系统的行为会导致有害或破坏性的结果。",
+                "我对AI辅助写作的系统充满信心。",
+                "AI辅助写作的系统能提供安全感。",
+                "AI辅助写作的系统具有诚实可靠性。",
+                "AI辅助写作的系统值得依靠。",
+                "AI辅助写作的系统是可靠的。",
+                "我可以信任AI辅助写作的系统。",
+                "我对使用类似于AI辅助写作的系统的工具具有丰富的经验。"
             ];
 
             const midtestQuestions = [
@@ -517,11 +516,11 @@
             });
 
             const getRoleName = (role) => {
-                const map = { 'rational': '绝对理性者', 'humanist': '人文关怀者', 'creative': '天马行空者', 'user': '作者 (你)', 'system': '环境主脑' };
+                const map = { 'rational': '绝对理性者', 'humanist': '人文关怀者', 'creative': '天马行空者', 'user': '作者 (你)', 'system': '环境主脑', 'ai_assistant': 'AI写作助手' };
                 return map[role] || 'AI';
             };
             const getRoleIcon = (role) => {
-                const map = { 'rational': '📐', 'humanist': '☕', 'creative': '🚀', 'user': '👤', 'system': '🌌' };
+                const map = { 'rational': '📐', 'humanist': '☕', 'creative': '🚀', 'user': '👤', 'system': '🌌', 'ai_assistant': '🤖' };
                 return map[role] || '🤖';
             };
             const getRoleColor = (role) => {
@@ -530,7 +529,8 @@
                     'humanist': { bg: 'bg-orange-100 border border-orange-200 text-orange-900 rounded-tl-none', text: 'text-orange-600' },
                     'creative': { bg: 'bg-purple-100 border border-purple-200 text-purple-900 rounded-tl-none', text: 'text-purple-600' },
                     'user': { bg: 'bg-slate-700 text-white rounded-tr-none', text: 'text-slate-500' },
-                    'system': { bg: 'bg-emerald-100 border border-emerald-200 text-emerald-900 rounded-tl-none', text: 'text-emerald-600' }
+                    'system': { bg: 'bg-emerald-100 border border-emerald-200 text-emerald-900 rounded-tl-none', text: 'text-emerald-600' },
+                    'ai_assistant': { bg: 'bg-blue-50 border border-blue-200 text-blue-900 rounded-tl-none', text: 'text-blue-600' }
                 };
                 return map[role] || { bg: 'bg-gray-100', text: 'text-gray-600' };
             };
@@ -539,28 +539,19 @@
             const getCurrentTestRef = () => stage.value === 'midtest' ? midAnswers.value[currentTaskIdx.value] : postAnswers.value;
             const selectAffectGrid = (x, y) => { const tr = getCurrentTestRef(); tr.grid_x = x; tr.grid_y = y; };
 
-            // 🌟 修复：把轮询函数移到外面，不再错误地嵌套在 startBaseline 内部
-            const checkBaselineToICA = () => {
-                if (baselineTimer.value <= 0 && pretestDone.value) {
-                    stage.value = 'ica_review';
-                    isGeneratingIca.value = true;
-                    icaImageUrl.value = '';
-
-                    console.log("⏳ 正在等待底层进程结束并释放文件锁...");
-                    pollBaselineStatus();
-                }
-            };
-
             const pollBaselineStatus = async () => {
                 try {
                     const res = await fetch('http://127.0.0.1:8000/api/check_baseline_status');
                     const data = await res.json();
-
                     if (data.status === 'done') {
                         const timestamp = new Date().getTime();
-                        icaImageUrl.value = `http://127.0.0.1:8000/static/current_ica.png?t=${timestamp}`;
+                        const subId = config.value.sub_id; // 获取当前被试编号
+
+                        // 🌟 核心修复：去被试专属的 config 文件夹下读取 ICA 图片！
+                        icaImageUrl.value = `http://127.0.0.1:8000/experiment_data/${subId}/config/${subId}_ica_panel.png?t=${timestamp}`;
+
                         isGeneratingIca.value = false;
-                        console.log("✅ 确认底层进程结束，ICA图片安全加载完毕！");
+                        console.log(`✅ 确认底层进程结束，被试 ${subId} 的 ICA 图片加载完毕！`);
                     } else {
                         setTimeout(pollBaselineStatus, 500);
                     }
@@ -569,9 +560,18 @@
                 }
             };
 
+            const finishBaseline = async () => {
+                try {
+                    await fetch('http://127.0.0.1:8000/api/generate_base_means', { method: 'POST' });
+                } catch (e) {
+                    console.error("触发基线计算失败", e);
+                }
+                stage.value = 'pretest';
+            };
+
             const startBaseline = async () => {
                 if (!config.value.sub_id) return alert("被试编号必填！");
-                stage.value = 'baseline_wait';
+                stage.value = 'baseline_typing';
                 baselineTimer.value = BASELINE_DURATION;
 
                 if (timerInterval) clearInterval(timerInterval);
@@ -581,7 +581,7 @@
                     if (baselineTimer.value <= 0) {
                         baselineTimer.value = 0;
                         clearInterval(timerInterval);
-                        checkBaselineToICA();
+                        finishBaseline();
                     }
                 }, 1000);
 
@@ -612,8 +612,12 @@
                 }
 
                 pretestDone.value = true;
-                stage.value = 'baseline_wait';
-                checkBaselineToICA();
+                stage.value = 'ica_review';
+                isGeneratingIca.value = true;
+                icaImageUrl.value = '';
+
+                console.log("⏳ 正在等待底层进程结束并释放文件锁...");
+                pollBaselineStatus();
             };
 
             const startInferenceEngine = async () => {
@@ -741,10 +745,25 @@
                             ws.send(JSON.stringify({
                                 type: "trigger_theater_intervention",
                                 theme: config.value.theme,
-                                text: texts.value[currentTaskIdx.value]
+                                text: texts.value[currentTaskIdx.value],
+                                history: chats.value[currentTaskIdx.value]
                             }));
                         }
                     }
+                    else if (data.type === "clear_alert") {
+                        // 1. 关闭戏剧对话干预弹窗
+                        if (isState0.value) {
+                            isState0.value = false;
+                            console.log("🟢 收到心流恢复信号，已自动解除戏剧干预！");
+                        }
+
+                        // 2. 恢复屏幕背景/灯光环境到默认状态
+                        if (typeof resetEnvironment === 'function') {
+                            resetEnvironment(); // 👈 直接调用你写好的恢复函数！
+                            console.log("🟢 已自动恢复正常环境配色！");
+                        }
+                    }
+
                     else if (data.type === "theater_actor_msg") {
                         chats.value[currentTaskIdx.value].push({
                             role: data.role,
@@ -758,7 +777,7 @@
                     }
                     else if (data.type === "chat_reply") {
                         chats.value[currentTaskIdx.value].push({
-                            role: 'humanist',
+                            role: 'ai_assistant',
                             content: data.content,
                             time: getAbsTime()
                         });
@@ -783,6 +802,7 @@
                 envHighlightText.value = '';
             };
 
+
             const sendChat = () => {
                 if (!chatInput.value.trim() || !ws) return;
                 chats.value[currentTaskIdx.value].push({
@@ -790,7 +810,12 @@
                     content: chatInput.value,
                     time: getAbsTime()
                 });
-                ws.send(JSON.stringify({ type: "group2_chat", text: chatInput.value }));
+                // 🌟 修改这里：把当前任务的所有聊天记录 (history) 一起打包发给后端
+                ws.send(JSON.stringify({
+                    type: "group2_chat",
+                    text: chatInput.value,
+                    history: chats.value[currentTaskIdx.value]
+                }));
                 chatInput.value = '';
                 scrollToBottom();
             };
@@ -898,6 +923,7 @@
 
                 // ICA 与 创作区数据
                 icaImageUrl, icaExcludes, texts, chats, chatInput, isState0, envHighlightText, theoryDescriptions,
+                baselineCopyText, baselineInput,
 
                 // 工具函数
                 formatTime, getCurrentTestRef, selectAffectGrid, getRoleName, getRoleIcon, getRoleColor,

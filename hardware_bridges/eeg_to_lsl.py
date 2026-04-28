@@ -59,12 +59,18 @@ def start_neuracle_bridge():
     print(f"📡 LSL [Neuracle_EEG] 局域网广播已开启！\n")
     print("🚀 正在实时拦截数据并推流，按 Ctrl+C 停止...")
 
+    # 🌟 新增：看门狗计时器，记录上一次收到有效数据的时间
+    last_data_time = time.time()
+
     try:
         while True:
             # 使用官方接口获取新数据长度
             nUpdate = thread_data_server.GetDataLenCount()
 
             if nUpdate > 0:
+                # 🌟 收到新数据，立刻“喂狗”，重置计时器！
+                last_data_time = time.time()
+
                 # 使用官方接口获取缓存池数据
                 data = thread_data_server.GetBufferData()
                 thread_data_server.ResetDataLenCount()
@@ -76,6 +82,14 @@ def start_neuracle_bridge():
                 chunk_to_push = new_data_chunk.T.tolist()
                 outlet.push_chunk(chunk_to_push)
 
+            else:
+                # 🌟 核心修复：看门狗巡逻
+                # 如果当前时间距离最后一次收到数据已经超过了 3.0 秒，果断判定断开！
+                if time.time() - last_data_time > 3.0:
+                    print("\n🚨 [看门狗报警] 超过 3 秒未收到脑电新数据！")
+                    print("❌ 设备可能已关机、休眠，或 TCP 局域网连接已物理断开！")
+                    break  # 主动跳出循环，触发 finally 干净利落安全关闭设备
+
             # 20ms 轮询，保证极低延迟
             time.sleep(0.02)
 
@@ -84,9 +98,10 @@ def start_neuracle_bridge():
     except Exception as e:
         print(f"\n⚠️ 运行时发生异常: {e}")
     finally:
-        print("🔌 正在安全关闭底层 TCP 线程...")
+        print("🔌 正在安全关闭底层 TCP 线程和 LSL 出口...")
         thread_data_server.stop()
-        print("👋 桥接器已退出。")
+        # 注意：pylsl 的 StreamOutlet 只要出作用域/脚本结束，会自动销毁回收水管
+        print("👋 桥接器已安全退出。")
 
 
 if __name__ == '__main__':

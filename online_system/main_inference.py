@@ -354,7 +354,12 @@ def start_online_inference():
         process_time = time.time() - cycle_start
 
         if flow_prob >= BEST_THRESHOLD:
-            print(f"🟢 [结果] 心流状态 (Prob: {flow_prob:.3f}) | 计算耗时: {process_time:.2f}s")
+            print(f"🟢 [结果] 心流状态 (Prob: {flow_prob:.3f}) -> 状态良好，解除干预！ | 计算耗时: {process_time:.2f}s")
+            # 👇 新增这一步：通知后端解除前端的干预弹窗
+            try:
+                requests.post("http://127.0.0.1:8000/api/clear_alert", timeout=1.0)
+            except:
+                pass
         else:
             print(f"🔴 [结果] 认知枯竭 (Prob: {flow_prob:.3f}) -> 触发干预报警！ | 计算耗时: {process_time:.2f}s")
             try:

@@ -1,0 +1,62 @@
+[
+  {
+    "key": "2",
+    "code": "Digit2",
+    "time": "2026-04-28 16:42:08.481",
+    "timestamp_ms": 1777365728478
+  },
+  {
+    "key": "3",
+    "code": "Digit3",
+    "time": "2026-04-28 16:42:08.672",
+    "timestamp_ms": 1777365728671
+  },
+  {
+    "key": "Backspace",
+    "code": "Backspace",
+    "time": "2026-04-28 16:42:09.498",
+    "timestamp_ms": 1777365729498
+  },
+  {
+    "key": "Backspace",
+    "code": "Backspace",
+    "time": "2026-04-28 16:42:09.607",
+    "timestamp_ms": 1777365729607
+  },
+  {
+    "key": "1",
+    "code": "Digit1",
+    "time": "2026-04-28 16:42:10.202",
+    "timestamp_ms": 1777365730202
+  },
+  {
+    "key": "2",
+    "code": "Digit2",
+    "time": "2026-04-28 16:42:10.289",
+    "timestamp_ms": 1777365730289
+  },
+  {
+    "key": "3",
+    "code": "Digit3",
+    "time": "2026-04-28 16:42:10.417",
+    "timestamp_ms": 1777365730417
+  },
+  {
+    "key": "Backspace",
+    "code": "Backspace",
+    "time": "2026-04-28 17:26:50.546",
+    "timestamp_ms": 1777368410545
+  },
+  {
+    "key": "Backspace",
+    "code": "Backspace",
+    "time": "2026-04-28 17:26:50.691",
+    "timestamp_ms": 1777368410691
+  },
+  {
+    "key": "Backspace",
+    "code": "Backspace",
+    "time": "2026-04-28 17:26:50.773",
+    "timestamp_ms": 1777368410773
+  }
+]

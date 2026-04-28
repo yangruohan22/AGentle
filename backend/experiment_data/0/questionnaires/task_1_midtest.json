@@ -1,10 +1,10 @@
 {
   "likert": [
-    2,
-    2,
-    2,
-    2
+    null,
+    null,
+    null,
+    null
   ],
-  "grid_x": 8,
-  "grid_y": 2
+  "grid_x": null,
+  "grid_y": null
 }

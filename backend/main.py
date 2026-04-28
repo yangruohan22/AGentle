@@ -52,31 +52,36 @@ os.makedirs("static_plots", exist_ok=True)
 os.makedirs("experiment_data", exist_ok=True)
 
 app.mount("/static", StaticFiles(directory=static_path), name="static")
-
+experiment_path = os.path.join(current_dir, "experiment_data")
+app.mount("/experiment_data", StaticFiles(directory=experiment_path), name="experiment_data")
 # ==========================================
 # 大模型 (LLM) 引擎配置
 # ==========================================
-KIMI_API_KEY = "sk-KnNJv6ikxTJV6R2VIXdN1SJ7LBZpzBEW0YcVkHqUTuvclgxB"
-client = AsyncOpenAI(api_key=KIMI_API_KEY, base_url="https://api.moonshot.cn/v1")
+DEEPSEEK_API_KEY = "sk-4d52b8a640c445ae95ff13220b0c579d"
+client = AsyncOpenAI(api_key=DEEPSEEK_API_KEY, base_url="https://api.deepseek.com")
 
 active_websockets = []
 active_inference_process = None
 active_baseline_process = None
+active_base_means_process = None  # 🌟 新增：追踪后台基线计算进程
+current_baseline_sub_id = None  # 🌟 新增：记住当前正在做基线的被试ID
+
 
 class InferenceRequest(BaseModel):
     sub_id: str
+
 
 class SetupData(BaseModel):
     sub_id: str
     group: int
     duration: int = 180
-    # task_id: int # 去除必填限制以兼容前端
 
 
 @app.post("/api/start_baseline")
 async def start_baseline(data: SetupData):
-    global active_baseline_process
-    print(f"[{datetime.now().strftime('%H:%M:%S')}] 🚀 开始基线采集 (Sub: {data.sub_id})")
+    global active_baseline_process, current_baseline_sub_id
+    current_baseline_sub_id = data.sub_id
+    print(f"[{datetime.now().strftime('%H:%M:%S')}] 🚀 开始 3 分钟打字基线数据采集 (Sub: {data.sub_id})")
     try:
         # 如果还有上一个没死透的基线进程，先清理掉
         if active_baseline_process is not None:
@@ -88,30 +93,54 @@ async def start_baseline(data: SetupData):
     return {"status": "success"}
 
 
-# ================= 新增：前端用来轮询进程是否彻底结束的接口 =================
+# ================= 🌟 新增：供前端隐式调用的后台计算接口 =================
+@app.post("/api/generate_base_means")
+async def generate_base_means():
+    global active_baseline_process, active_base_means_process, current_baseline_sub_id
 
+    if not current_baseline_sub_id:
+        return {"status": "error", "msg": "找不到当前被试的 Sub_ID"}
+
+    # 安全锁：确保录制脚本已经完全退出，文件写入完毕，防止文件被锁！
+    if active_baseline_process is not None:
+        if active_baseline_process.poll() is None:
+            print(f"⏳ 正在等待录制脚本优雅保存数据并退出...")
+            try:
+                active_baseline_process.wait(timeout=5)  # 最多等5秒钟让它存文件
+            except subprocess.TimeoutExpired:
+                active_baseline_process.terminate()
+        active_baseline_process = None
+
+    print(
+        f"[{datetime.now().strftime('%H:%M:%S')}] ⚙️ 正在后台隐式计算基线特征与提取 ICA (Sub: {current_baseline_sub_id})...")
+    try:
+        cwd_path = os.path.abspath(os.path.dirname(__file__))
+        # 启动计算子进程（不阻塞前端）
+        active_base_means_process = subprocess.Popen(["python", "generate_base_means.py", current_baseline_sub_id],
+                                                     cwd=cwd_path)
+    except Exception as e:
+        print(f"⚠️ 自动触发基线计算失败: {e}")
+
+    return {"status": "calculating"}
+
+
+# ================= 🌟 改造：供前端 ICA 页面轮询的接口 =================
 @app.get("/api/check_baseline_status")
 async def check_baseline_status():
-    global active_baseline_process
-    if active_baseline_process is None:
+    global active_base_means_process
+
+    if active_base_means_process is None:
         return {"status": "idle"}
 
-    ret_code = active_baseline_process.poll()
+    # 轮询计算进程，而不是录制进程
+    ret_code = active_base_means_process.poll()
     if ret_code is None:
         return {"status": "running"}
     else:
-        # ✅ 基线录制彻底结束，自动拉起基线特征计算脚本！
-        try:
-            sub_id = active_baseline_process.args[2] # 获取刚才启动时的 sub_id
-            cwd_path = os.path.abspath(os.path.dirname(__file__))
-            print(f"🚀 正在自动计算被试 {sub_id} 的 Base 基线均值 JSON...")
-            # 阻塞运行，确保算完基线再通知前端完成
-            subprocess.run(["python", "generate_base_means.py", sub_id], cwd=cwd_path)
-        except Exception as e:
-            print(f"⚠️ 自动触发基线计算失败: {e}")
-
-        active_baseline_process = None
+        # 计算彻底结束，前端可以拿 ICA 图了
+        active_base_means_process = None
         return {"status": "done"}
+
 
 class ICAExcludes(BaseModel):
     sub_id: str
@@ -131,9 +160,8 @@ async def submit_ica(data: ICAExcludes):
         json.dump({"manual_excludes": indices}, f, ensure_ascii=False)
     return {"status": "success"}
 
-class InferenceRequest(BaseModel):
-    sub_id: str
-# ================= 新增：一键启动推断引擎 =================
+
+# ================= 一键启动推断引擎 =================
 @app.post("/api/start_inference")
 async def start_inference(data: InferenceRequest):
     global active_inference_process
@@ -154,7 +182,9 @@ async def start_inference(data: InferenceRequest):
     except Exception as e:
         print(f"启动失败: {e}")
         return {"status": "error"}
-# ================= 修改：分类保存实验数据 =================
+
+
+# ================= 分类保存实验数据 =================
 @app.post("/api/save_experiment")
 async def save_experiment(payload: dict):
     sub_id = payload.get("metadata", {}).get("sub_id", "UnknownSub")
@@ -194,6 +224,18 @@ async def alert_depletion():
         await ws.send_json({"type": "physiological_alert"})
     return {"status": "success"}
 
+
+@app.post("/api/clear_alert")
+async def clear_alert():
+    # 纯转发：告诉所有前端，心流恢复了！解除干预状态
+    for ws in active_websockets:
+        try:
+            await ws.send_json({"type": "clear_alert"})
+        except Exception as e:
+            print(f"WebSocket发送解除警报失败: {e}")
+    return {"status": "success"}
+
+
 # =========================================================================
 # ========================= 新增：打标与单步覆盖 API 区 =========================
 # =========================================================================
@@ -201,6 +243,7 @@ async def alert_depletion():
 class MarkerData(BaseModel):
     event: str
     abs_time: str
+
 
 @app.post("/api/send_marker")
 async def send_marker(data: MarkerData):
@@ -211,9 +254,11 @@ async def send_marker(data: MarkerData):
         print(f"[{datetime.now().strftime('%H:%M:%S')}] 🚩 LSL打标: {data.event}")
     return {"status": "success"}
 
+
 class PretestData(BaseModel):
     sub_id: str
     answers: list
+
 
 @app.post("/api/save_pretest")
 async def save_pretest(data: PretestData):
@@ -224,9 +269,11 @@ async def save_pretest(data: PretestData):
     print(f"[{datetime.now().strftime('%H:%M:%S')}] 📝 前测问卷已即时保存/覆盖")
     return {"status": "success"}
 
+
 class PosttestData(BaseModel):
     sub_id: str
     answers: dict
+
 
 @app.post("/api/save_posttest")
 async def save_posttest(data: PosttestData):
@@ -237,6 +284,7 @@ async def save_posttest(data: PosttestData):
     print(f"[{datetime.now().strftime('%H:%M:%S')}] 📝 后测问卷已即时保存/覆盖")
     return {"status": "success"}
 
+
 class PartialTaskData(BaseModel):
     sub_id: str
     task_id: int
@@ -244,6 +292,7 @@ class PartialTaskData(BaseModel):
     keystrokes: list
     chat_log: list
     survey_mid: dict
+
 
 @app.post("/api/save_partial_task")
 async def save_partial_task(data: PartialTaskData):
@@ -273,17 +322,19 @@ async def save_partial_task(data: PartialTaskData):
 async def call_agent(role: str, sys_prompt: str, user_prompt: str):
     try:
         resp = await client.chat.completions.create(
-            model="moonshot-v1-8k",
+            model="deepseek-v4-pro",
             messages=[
                 {"role": "system", "content": sys_prompt},
                 {"role": "user", "content": user_prompt}
             ],
-            temperature=1
+            temperature=1,
+            extra_body={"thinking": {"type": "disabled"}}
         )
         return {"role": role, "content": resp.choices[0].message.content.strip()}
     except Exception as e:
         print(f"Agent {role} 调用失败: {e}")
         return {"role": role, "content": "（由于系统干扰，该角色的信号暂时丢失）"}
+
 
 async def call_env_agent(theme: str, current_text: str):
     """专门负责返回 JSON 调整环境颜色的主脑"""
@@ -297,10 +348,12 @@ async def call_env_agent(theme: str, current_text: str):
     }"""
     try:
         resp = await client.chat.completions.create(
-            model="moonshot-v1-8k",
+            model="deepseek-v4-pro",
+            response_format={"type": "json_object"},
             messages=[{"role": "system", "content": sys_prompt},
                       {"role": "user", "content": f"主题：{theme}\n当前文本：{current_text[-200:]}"}],
-            temperature=1
+            temperature=1,
+            extra_body={"thinking": {"type": "disabled"}}
         )
         content = resp.choices[0].message.content
         match = re.search(r'\{.*\}', content, re.DOTALL)
@@ -314,8 +367,9 @@ async def call_env_agent(theme: str, current_text: str):
         "page_bg": "#e2e8f0",
         "box_bg": "#f8fafc",
         "text_color": "#334155",
-        "focus_keyword": "深渊凝视"
+        "focus_keyword": "觉醒"
     }
+
 
 # ==========================================
 # WebSocket 路由
@@ -335,62 +389,86 @@ async def websocket_endpoint(websocket: WebSocket):
             # 组 2 的纯被动自由对话逻辑
             # ----------------------------------------------------
             if msg_type == "group2_chat":
-                user_msg = payload.get("text")
+                # 获取前端传来的历史记录
+                history = payload.get("history", [])
                 sys_prompt = "你是一个专业的小说创作助手。请根据作者的提问，提供有建设性的建议。尽量简短，不要长篇大论。"
 
+                # 🌟 核心组装：把系统提示词和历史记录拼在一起
+                messages = [{"role": "system", "content": sys_prompt}]
+
+                for msg in history:
+                    # 前端发来的角色是 'user' 或 'ai_assistant'，API需要 'user' 或 'assistant'
+                    api_role = "user" if msg.get("role") == "user" else "assistant"
+                    messages.append({"role": api_role, "content": msg.get("content", "")})
+
                 resp = await client.chat.completions.create(
-                    model="kimi-k2.5",
-                    messages=[
-                        {"role": "system", "content": sys_prompt},
-                        {"role": "user", "content": user_msg}
-                    ],
-                    temperature=0.7
+                    model="deepseek-chat",
+                    messages=messages,
+                    temperature=1.0,
+                    extra_body={"thinking": {"type": "disabled"}}
                 )
                 await websocket.send_json({"type": "chat_reply", "content": resp.choices[0].message.content.strip()})
-
             # ----------------------------------------------------
             # 组 3 的多智能体串行争论逻辑 (小剧场) -> 完整恢复版本
             # ----------------------------------------------------
             elif msg_type == "trigger_theater_intervention":
                 theme = payload.get("theme", "")
                 text = payload.get("text", "")
+                history = payload.get("history", [])
                 print(f"[{datetime.now().strftime('%H:%M:%S')}] 🚨 AND门触发！正在拉起串行剧场...")
 
-                # 1. 环境主脑可以和对话并行，因为不影响文字
                 env_task = asyncio.create_task(call_env_agent(theme, text))
 
-                # ------ 串行争论开始 ------
+                # ==================== 🌟 1. 动态判断：有无文本破冰 🌟 ====================
+                text_clean = text.strip()
+                if not text_clean:
+                    author_status = "【当前状态】：作者正对着空白屏幕发呆，一个字都还没写出来！急需一个极具画面感的【开局第一幕】来破冰。"
+                else:
+                    author_status = f"【当前进展】：作者目前写了这些内容，但似乎卡壳了：\n“{text[-300:]}”"
 
-                # Act 1: 绝对理性者先发言
-                base_context = f"当前设定的世界观主题是：{theme}\n作者目前写了这些内容（可能卡壳了）：\n{text[-300:]}\n"
+                # ==================== 🌟 2. 剧场记忆与对话感规则 🌟 ====================
+                history_text = ""
+                if history:
+                    history_text = "\n【前情提要（你们之前出的主意）】：\n"
+                    for msg in history:
+                        role_name = {"rational": "理科编剧", "humanist": "感性编剧", "creative": "疯批编剧"}.get(
+                            msg.get("role"), "其他")
+                        history_text += f"- {role_name}: {msg.get('content')}\n"
+                    history_text += "⚠️ 警告：绝对不要重复你们之前说过的情节！\n"
 
-                sys_rat = "你代表【绝对的理性】。说话必须严谨、冷酷、逻辑缜密（像一个莫得感情的物理学家）。字数控制在40字以内。"
-                user_rat = base_context + "\n请一针见血地指出剧情下一步在逻辑或物理法则上的必然走向。"
+                base_context = f"当前的世界观设定是：{theme}\n{author_status}\n{history_text}"
+                base_rule = "【剧场表演法则】：\n1. 必须以【会议室对话的口吻】发言！你可以直接吐槽另外两人的烂主意，或者对作者喊话（如：“听我说作者...”）。\n2. 第一句必须是口语化的感叹或反驳，紧接着立刻扔出一个极度具体的【视觉画面、主角动作或突发事件】来推动剧情。拒绝抽象概念！\n3. 严格控制在60字以内！"
+
+                # ==================== 🌟 3. 演员逐一登场 🌟 ====================
+
+                # 演员 1：绝对理性者
+                sys_rat = "你是剧场里的【冷酷理科编剧】。说话一针见血，只关心物理法则、残酷现实和逻辑推演。"
+                user_rat = base_context + f"\n{base_rule}\n请你第一个发言。用一两句口语，给主角安排一个具体的危机或环境异变。"
 
                 res_rat = await call_agent("rational", sys_rat, user_rat)
-                # 算出一个发一个，实现真实的“正在输入”的错落感
                 await websocket.send_json(
                     {"type": "theater_actor_msg", "role": res_rat["role"], "content": res_rat["content"]})
-                await asyncio.sleep(1.5)  # 制造人类打字的停顿感
+                await asyncio.sleep(1.5)
 
-                # Act 2: 人文关怀者看到理性者的话，出来反驳
-                sys_hum = "你代表【人文关怀】。说话必须温柔、充满悲悯、感性（像一个充满哲思的诗人）。字数控制在40字以内。"
-                user_hum = base_context + f"\n就在刚刚，【绝对理性者】提出了这个冷酷的建议：\n“{res_rat['content']}”\n\n请你反驳他！从人物内心情感、人性或道德困境的角度，给出更有温度的剧情建议。"
+                # 演员 2：人文关怀者
+                sys_hum = "你是剧场里的【感性文艺编剧】。在乎角色的痛苦和人性微光，觉得理科编剧太冷血。"
+                user_hum = base_context + f"\n刚刚，理科编剧冷酷地说：\n“{res_rat['content']}”\n\n{base_rule}\n请直接开口反驳理科编剧的冷血！然后从主角的【内心情感或道德抉择】切入，补充一个带有人情味的具体画面。"
 
                 res_hum = await call_agent("humanist", sys_hum, user_hum)
                 await websocket.send_json(
                     {"type": "theater_actor_msg", "role": res_hum["role"], "content": res_hum["content"]})
                 await asyncio.sleep(1.5)
 
-                # Act 3: 脑洞者看到前两人的争论，出来嘲讽全场
-                sys_cre = "你代表【天马行空的脑洞】。说话必须疯狂、诡异、极具颠覆性甚至有些疯癫。字数控制在40字以内。"
-                user_cre = base_context + f"\n刚才，【绝对理性者】说：\n“{res_rat['content']}”\n然后【人文关怀者】反驳道：\n“{res_hum['content']}”\n\n请你嘲笑他们两人的思维太局限、太无聊！抛出一个完全颠覆常理、极具视觉冲击力的疯狂情节转折！"
+                # 演员 3：天马行空者
+                sys_cre = "你是剧场里的【疯批视觉系编剧】。嫌弃前面两个人太老套、太墨迹。满脑子都是怪诞美学和反直觉的视觉冲击。"
+                user_cre = base_context + f"\n理科编剧说：\n“{res_rat['content']}”\n感性编剧反驳说：\n“{res_hum['content']}”\n\n{base_rule}\n请直接开口嘲笑他们俩太无聊！抛开他们的套路，硬塞进来一个完全颠覆常理、极度诡异但又符合设定的绝妙画面！切忌毫无关联的词强行绑定在一起，你所说的虽然天马行空，但是一定要有其内在的逻辑关联。"
 
                 res_cre = await call_agent("creative", sys_cre, user_cre)
                 await websocket.send_json(
                     {"type": "theater_actor_msg", "role": res_cre["role"], "content": res_cre["content"]})
 
-                # 最后，应用环境改变
+                # ====================================================================
+
                 res_env = await env_task
                 await websocket.send_json({"type": "env_adjustment", "style": res_env})
                 print(f"[{datetime.now().strftime('%H:%M:%S')}] 🎭 剧场演出完毕！")
@@ -403,6 +481,7 @@ async def websocket_endpoint(websocket: WebSocket):
             active_websockets.remove(websocket)
         print(f"WS Exception: {e}")
 
+
 # --- 核心：挂载前端静态资源 ---
 @app.get("/")
 async def get_index():
@@ -410,7 +489,6 @@ async def get_index():
 
 
 app.mount("/", StaticFiles(directory="../frontend"), name="frontend_assets")
-
 
 if __name__ == "__main__":
     import uvicorn
