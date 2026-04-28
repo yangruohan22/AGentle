@@ -284,14 +284,50 @@ def start_online_inference():
     et_buf = deque(maxlen=et_win_80s)
 
     def pull_data_worker():
+        # 记录三个模态最后一次收到有效数据的时间
+        last_eeg_time = time.time()
+        last_physio_time = time.time()
+        last_et_time = time.time()
+
+        # 预先定义好如果掉线，每次循环要塞入的 NaN 块大小
+        # 循环 0.005s 一次，所以每次塞入 (采样率 * 0.005) 个 NaN
+        eeg_nan_chunk = [[np.nan] * 8] * int(EEG_SFREQ * 0.005)  # 脑电 8 通道
+        physio_nan_chunk = [[np.nan] * 2] * int(PHYSIO_SFREQ * 0.005)  # 生理 2 通道
+        et_nan_chunk = [[np.nan] * 5] * int(ET_SFREQ * 0.005)  # 眼动假设 5 通道
+
         while True:
+            # 尝试拉取当前网络里的数据（不阻塞）
             e_chunk, _ = inlet_eeg.pull_chunk(timeout=0.0)
             p_chunk, _ = inlet_physio.pull_chunk(timeout=0.0)
             et_chunk, _ = inlet_et.pull_chunk(timeout=0.0)
 
-            if e_chunk: eeg_buf.extend(e_chunk)
-            if p_chunk: physio_buf.extend(p_chunk)
-            if et_chunk: et_buf.extend(et_chunk)
+            current_time = time.time()
+
+            # ================= 脑电通道处理 =================
+            if e_chunk:
+                eeg_buf.extend(e_chunk)
+                last_eeg_time = current_time
+            elif current_time - last_eeg_time > 2.0:
+                # 🚨 看门狗触发：超过 2 秒没收到脑电数据，强行推 NaN 挤走旧数据
+                eeg_buf.extend(eeg_nan_chunk)
+
+            # ================= 生理通道处理 =================
+            if p_chunk:
+                physio_buf.extend(p_chunk)
+                last_physio_time = current_time
+            elif current_time - last_physio_time > 2.0:
+                # 🚨 看门狗触发：生理信号掉线
+                physio_buf.extend(physio_nan_chunk)
+
+            # ================= 眼动通道处理 =================
+            if et_chunk:
+                et_buf.extend(et_chunk)
+                last_et_time = current_time
+            elif current_time - last_et_time > 2.0:
+                # 🚨 看门狗触发：眼动仪丢失（被试闭眼太久或硬件断开）
+                et_buf.extend(et_nan_chunk)
+
+            # 保持极高的轮询频率，确保不漏过任何网络包
             time.sleep(0.005)
 
     threading.Thread(target=pull_data_worker, daemon=True).start()

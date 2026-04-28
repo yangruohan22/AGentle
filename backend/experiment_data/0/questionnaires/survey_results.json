@@ -1,0 +1,100 @@
+{
+  "pretest": [
+    null,
+    null,
+    null,
+    null,
+    null,
+    null,
+    null,
+    null,
+    null,
+    null,
+    null,
+    null,
+    null,
+    null,
+    null,
+    null,
+    null,
+    null,
+    null,
+    null,
+    null,
+    null,
+    null,
+    null,
+    null,
+    null,
+    null,
+    null,
+    null,
+    null
+  ],
+  "posttest": {
+    "general": [
+      null,
+      null,
+      null
+    ],
+    "ai_eval": [
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null
+    ]
+  },
+  "tasks_midtest": [
+    {
+      "likert": [
+        null,
+        null,
+        null,
+        null
+      ],
+      "grid_x": null,
+      "grid_y": null
+    },
+    {
+      "likert": [
+        null,
+        null,
+        null,
+        null
+      ],
+      "grid_x": null,
+      "grid_y": null
+    },
+    {
+      "likert": [
+        null,
+        null,
+        null,
+        null
+      ],
+      "grid_x": null,
+      "grid_y": null
+    }
+  ]
+}

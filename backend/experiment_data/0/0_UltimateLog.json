@@ -1,0 +1,123 @@
+{
+  "metadata": {
+    "sub_id": "0",
+    "group": 1,
+    "theme": "1. 整合信息理论 (IIT)"
+  },
+  "pretest": [
+    null,
+    null,
+    null,
+    null,
+    null,
+    null,
+    null,
+    null,
+    null,
+    null,
+    null,
+    null,
+    null,
+    null,
+    null,
+    null,
+    null,
+    null,
+    null,
+    null,
+    null,
+    null,
+    null,
+    null,
+    null,
+    null,
+    null,
+    null,
+    null,
+    null
+  ],
+  "tasks": [
+    {
+      "task_id": 1,
+      "final_text": "",
+      "keystrokes": [],
+      "chat_log": [],
+      "midtest": {
+        "likert": [
+          null,
+          null,
+          null,
+          null
+        ],
+        "grid_x": null,
+        "grid_y": null
+      }
+    },
+    {
+      "task_id": 2,
+      "final_text": "",
+      "keystrokes": [],
+      "chat_log": [],
+      "midtest": {
+        "likert": [
+          null,
+          null,
+          null,
+          null
+        ],
+        "grid_x": null,
+        "grid_y": null
+      }
+    },
+    {
+      "task_id": 3,
+      "final_text": "",
+      "keystrokes": [],
+      "chat_log": [],
+      "midtest": {
+        "likert": [
+          null,
+          null,
+          null,
+          null
+        ],
+        "grid_x": null,
+        "grid_y": null
+      }
+    }
+  ],
+  "posttest": {
+    "general": [
+      null,
+      null,
+      null
+    ],
+    "ai_eval": [
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null
+    ]
+  }
+}
