@@ -14,6 +14,7 @@ from pylsl import resolve_byprop, StreamInlet
 import warnings
 import os
 import sys
+from datetime import datetime
 
 current_dir = os.path.dirname(os.path.abspath(__file__))
 
@@ -32,52 +33,58 @@ BEST_THRESHOLD = 0.42
 EEG_SFREQ = 1000
 PHYSIO_SFREQ = 1000
 ET_SFREQ = 1200
-
 # ================= 1. 动态定位路径与加载配置 =================
 sub_id = sys.argv[1] if len(sys.argv) > 1 else "Unknown"
-print(f"🧠 正在为被试 {sub_id} 唤醒 A-Gentle AI 引擎...")
 
 model_dir = os.path.join(current_dir, "..", "model")
 backend_config_dir = os.path.join(current_dir, "..", "backend", "experiment_data", sub_id, "config")
 
-# 加载模型
+# 全局无害加载 (被其它脚本 import 时执行也没关系)
 live_model = joblib.load(os.path.join(model_dir, 'agentle_lgbm_champion.pkl'))
 live_scaler = joblib.load(os.path.join(model_dir, 'agentle_scaler.pkl'))
 expected_features = joblib.load(os.path.join(model_dir, 'agentle_features.pkl'))
 
-# 🚀 1.1 动态加载被试专属 ICA 拼图
-try:
-    fif_path = os.path.join(backend_config_dir, f"{sub_id}_baseline_ica.fif")
-    json_path = os.path.join(backend_config_dir, f"{sub_id}_ica_config.json")
-
-    base_ica = mne.preprocessing.read_ica(fif_path)
-    with open(json_path, 'r', encoding='utf-8') as f:
-        manual_config = json.load(f)
-        manual_excludes = manual_config.get('manual_excludes', [])
-    print(f"✅ 成功加载 {sub_id} 的专属配置！封印索引: {manual_excludes}")
-except Exception as e:
-    print(f"⚠️ 未找到专属配置，将不执行 ICA 去噪。详情: {e}")
-    base_ica = None
-    manual_excludes = []
-
-# 🚀 1.2 动态加载真实的 3 分钟基线特征均值！
-base_means_path = os.path.join(backend_config_dir, f"{sub_id}_base_means.json")
+# ⚠️ 预先占位：防止 import 时报变量找不到的错
+base_ica = None
+manual_excludes = []
 real_base_means = {}
-print("⏳ 正在等待基线特征数据就绪 (防并发锁)...")
-for _ in range(15):  # 最多等待 15 秒
-    if os.path.exists(base_means_path):
-        try:
-            with open(base_means_path, 'r', encoding='utf-8') as f:
-                real_base_means = json.load(f)
-            print(f"✅ 成功加载基线数据！共包含 {len(real_base_means)} 个特征的 Base 均值。")
-            break
-        except Exception:
-            pass  # 文件可能正在写入一半，引发 JSON 解析失败，等待下一秒再试
-    time.sleep(1.0)
-else:
-    print(f"⚠️ [危险警告] 等待 15 秒后仍未找到基线文件 {sub_id}_base_means.json！特征将不减基线，极易导致误判！")
-print(f"✅ 系统就绪！要求对齐 {len(expected_features)} 个特征。")
 
+def load_subject_configs():
+    """🌟 核心修复：把加载专属配置包裹起来，防止被 import 时意外触发死锁"""
+    global base_ica, manual_excludes, real_base_means
+    print(f"🧠 正在为被试 {sub_id} 唤醒 A-Gentle AI 引擎...")
+
+    # 🚀 1.1 动态加载被试专属 ICA 拼图
+    try:
+        fif_path = os.path.join(backend_config_dir, f"{sub_id}_baseline_ica.fif")
+        json_path = os.path.join(backend_config_dir, f"{sub_id}_ica_config.json")
+
+        base_ica = mne.preprocessing.read_ica(fif_path)
+        with open(json_path, 'r', encoding='utf-8') as f:
+            manual_config = json.load(f)
+            manual_excludes = manual_config.get('manual_excludes', [])
+        print(f"✅ 成功加载 {sub_id} 的专属配置！封印索引: {manual_excludes}")
+    except Exception as e:
+        print(f"⚠️ 未找到专属配置，将不执行 ICA 去噪。")
+        base_ica = None
+        manual_excludes = []
+
+    # 🚀 1.2 动态加载真实的 3 分钟基线特征均值！
+    base_means_path = os.path.join(backend_config_dir, f"{sub_id}_base_means.json")
+    print("⏳ 正在等待基线特征数据就绪 (防并发锁)...")
+    for _ in range(15):  # 最多等待 15 秒
+        if os.path.exists(base_means_path):
+            try:
+                with open(base_means_path, 'r', encoding='utf-8') as f:
+                    real_base_means = json.load(f)
+                print(f"✅ 成功加载基线数据！共包含 {len(real_base_means)} 个特征的 Base 均值。")
+                break
+            except Exception:
+                pass  # 文件可能正在写入一半，引发 JSON 解析失败，等待下一秒再试
+        time.sleep(1.0)
+    else:
+        print(f"⚠️ [危险警告] 等待 15 秒后仍未找到基线文件 {sub_id}_base_means.json！特征将不减基线，极易导致误判！")
+    print(f"✅ 系统就绪！要求对齐 {len(expected_features)} 个特征。")
 
 # ================= 2. 实时预处理 =================
 def preprocess_eeg_realtime(eeg_data_raw):
@@ -268,6 +275,17 @@ def prepare_and_predict(features_dict):
 
 # ================= 5. LSL 三路并发主循环 (80秒双层环形抗扭曲重构) =================
 def start_online_inference():
+    # =========================================================================
+    # 🌟 修改 1：初始化实时推断日志 (CSV) 移到函数内，保护全局 import 环境
+    # =========================================================================
+    inference_log_path = os.path.abspath(os.path.join(backend_config_dir, "..", f"{sub_id}_realtime_inference.csv"))
+
+    # 如果文件还没创建，就写个表头进去
+    if not os.path.exists(inference_log_path):
+        with open(inference_log_path, "w", encoding="utf-8") as f:
+            f.write("Timestamp,Flow_Probability,Inferred_State\n")
+    print(f"📝 实时状态记录簿已就绪，数据将持续追加至: {sub_id}_realtime_inference.csv")
+
     print("\n📡 正在局域网内寻找数据流...")
 
     inlet_eeg = StreamInlet(resolve_byprop('name', 'Neuracle_EEG')[0])
@@ -356,14 +374,20 @@ def start_online_inference():
         physio_80s = np.array(physio_buf).T
         et_80s = np.array(et_buf)
 
+        # =========================================================================
+        # 🌟 修改 2：彻底消灭 NumPy 的 NaN 传染病毒！(强行补 0 避免 MNE 除零崩溃)
+        # =========================================================================
+        eeg_80s_raw = np.nan_to_num(eeg_80s_raw, nan=0.0)
+        physio_80s = np.nan_to_num(physio_80s, nan=0.0)
+
         print(f"\n[{time.strftime('%H:%M:%S')}] --- 居中完美切片推断启动 ---")
         print(
-            f"🔍 [输入数据均值] EEG:{np.mean(eeg_80s_raw):.2e} | GSR:{np.mean(physio_80s[0]):.2f} | ECG:{np.mean(physio_80s[1]):.4f} | ET_X:{np.mean(et_80s[:, 1]):.2f}")
+            f"🔍 [输入数据均值] EEG:{np.nanmean(eeg_80s_raw):.2e} | GSR:{np.nanmean(physio_80s[0]):.2f} | ECG:{np.nanmean(physio_80s[1]):.4f} | ET_X:{np.nanmean(et_80s[:, 1]):.2f}")
 
         # 2. 预处理 (全量 80 秒进行，承受边缘扭曲)
         # ⚠️ 如果你目前的回放测试 npz 已经线下滤波清理过，请注释下一行，改为 cleaned_eeg_80s = eeg_80s_raw
-        # cleaned_eeg_80s = preprocess_eeg_realtime(eeg_80s_raw)
-        cleaned_eeg_80s = eeg_80s_raw
+        cleaned_eeg_80s = preprocess_eeg_realtime(eeg_80s_raw)
+        #cleaned_eeg_80s = eeg_80s_raw
 
         # 3. 🔪 核心切割！丢掉前后各 10 秒残渣，只留最中间完美的 60 秒纯净切片
         cleaned_eeg_60s = cleaned_eeg_80s[:, eeg_offset: eeg_offset + eeg_win_60s]
@@ -388,20 +412,31 @@ def start_online_inference():
         flow_prob, final_feats = prepare_and_predict(corrected_features)
 
         process_time = time.time() - cycle_start
+        # 🌟 提取当前极其精确的年月日时分秒
+        current_time_str = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
 
         if flow_prob >= BEST_THRESHOLD:
+            current_state = "Flow"
             print(f"🟢 [结果] 心流状态 (Prob: {flow_prob:.3f}) -> 状态良好，解除干预！ | 计算耗时: {process_time:.2f}s")
-            # 👇 新增这一步：通知后端解除前端的干预弹窗
             try:
                 requests.post("http://127.0.0.1:8000/api/clear_alert", timeout=1.0)
             except:
                 pass
         else:
+            current_state = "Depletion"
             print(f"🔴 [结果] 认知枯竭 (Prob: {flow_prob:.3f}) -> 触发干预报警！ | 计算耗时: {process_time:.2f}s")
             try:
                 requests.post("http://127.0.0.1:8000/api/alert_depletion", timeout=1.0)
             except:
                 pass
+
+        # ==========================================================
+        # 🌟 新增：把刚才的推断结果死死钉在硬盘上！
+        # 使用 'a' (append) 模式，保证就算中途断电停跑，之前的数据也不会丢
+        # ==========================================================
+        with open(inference_log_path, "a", encoding="utf-8") as f:
+            f.write(f"{current_time_str},{flow_prob:.4f},{current_state}\n")
+
 
         # 7. 严格锁死步长
         sleep_time = max(0.0, STEP_SIZE_SEC - process_time)
@@ -409,4 +444,5 @@ def start_online_inference():
 
 
 if __name__ == '__main__':
+    load_subject_configs()  # 🌟 只有当真正作为主程序启动推断引擎时，才去读文件！
     start_online_inference()

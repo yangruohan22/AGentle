@@ -1,0 +1,100 @@
+{
+  "pretest": [
+    3,
+    4,
+    5,
+    7,
+    5,
+    5,
+    2,
+    2,
+    6,
+    7,
+    6,
+    5,
+    6,
+    2,
+    7,
+    6,
+    7,
+    2,
+    2,
+    2,
+    3,
+    3,
+    2,
+    6,
+    6,
+    4,
+    5,
+    5,
+    5,
+    4
+  ],
+  "posttest": {
+    "general": [
+      4,
+      6,
+      7
+    ],
+    "ai_eval": [
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null
+    ]
+  },
+  "tasks_midtest": [
+    {
+      "likert": [
+        5,
+        1,
+        5,
+        1
+      ],
+      "grid_x": 6,
+      "grid_y": 7
+    },
+    {
+      "likert": [
+        4,
+        2,
+        6,
+        6
+      ],
+      "grid_x": 4,
+      "grid_y": 3
+    },
+    {
+      "likert": [
+        7,
+        6,
+        6,
+        2
+      ],
+      "grid_x": 8,
+      "grid_y": 8
+    }
+  ]
+}

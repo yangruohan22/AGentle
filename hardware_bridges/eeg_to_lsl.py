@@ -9,32 +9,28 @@ from pylsl import StreamInfo, StreamOutlet
 # =========================================================================
 CURRENT_DIR = os.path.dirname(os.path.abspath(__file__))
 if CURRENT_DIR not in sys.path:
-    # 使用 insert(0, ...) 强行把 hardware_bridges 塞到系统搜索路径的最前面
-    # 这样就算你根目录有同名文件夹，Python 也会优先用这里的！
     sys.path.insert(0, CURRENT_DIR)
 
 try:
     from neuracle_lib.dataServer import DataServerThread
 except ImportError as e:
-    print(f"\n🚨 极其异常的导入错误！\n错误详情: {e}")
-    print(f"当前 Python 搜索的绝对路径是: {CURRENT_DIR}\\neuracle_lib")
-    print("请检查该文件夹下是否生成了 __pycache__ 文件夹，如果有，请直接删掉它然后重试！")
+    print(f"\n🚨 导入错误: {e}")
     sys.exit(1)
 
 # ================= 🌟 核心配置区 🌟 =================
-DEVICE_IP = '127.0.0.1'  # 你的博睿康主机 IP (本机测试填 127.0.0.1)
+DEVICE_IP = '127.0.0.1'  # 博睿康主机 IP
 PORT = 8712  # 默认端口
-NUM_CHANNELS = 8  # 脑电帽真实通道数 (如需修改请按实际填)
+NUM_CHANNELS = 8  # 脑电通道数
 SAMPLING_RATE = 1000  # 采样率
-BUFFER_TIME = 3  # 官方默认的 3 秒缓存池
+BUFFER_TIME = 3  # 3 秒缓存池
 
 
 # ====================================================
 
 def start_neuracle_bridge():
-    print(f"\n🔄 正在初始化博睿康设备环境 (设备名: Neuracle, {NUM_CHANNELS}通道, {SAMPLING_RATE}Hz)...")
+    print(f"\n🔄 正在初始化博睿康设备环境 (Neuracle, {NUM_CHANNELS}通道, {SAMPLING_RATE}Hz)...")
 
-    # 完全使用官方库初始化
+    # 1. 初始化官方 DataServer 线程
     thread_data_server = DataServerThread(
         device='Neuracle',
         n_chan=NUM_CHANNELS,
@@ -46,61 +42,77 @@ def start_neuracle_bridge():
     notconnect = thread_data_server.connect(hostname=DEVICE_IP, port=PORT)
 
     if notconnect:
-        print("❌ 致命错误: 无法连接到脑电设备！请检查 IP 地址和网络广播设置。")
+        print("❌ 致命错误: 无法连接到脑电设备！请检查 Recorder 是否开启了 DataServer 转发。")
         return
     else:
         thread_data_server.Daemon = True
         thread_data_server.start()
         print("✅ 成功连接博睿康数据引擎！")
 
-    # 注册 LSL 广播出口
+    # 强制等待，给子线程留出数据填充时间
+    print("⏳ 等待硬件缓存初始化...")
+    time.sleep(1.5)
+
+    # 2. 注册 LSL 广播出口
     info = StreamInfo('Neuracle_EEG', 'EEG', NUM_CHANNELS, SAMPLING_RATE, 'float32', 'neuracle_bci_001')
     outlet = StreamOutlet(info)
-    print(f"📡 LSL [Neuracle_EEG] 局域网广播已开启！\n")
-    print("🚀 正在实时拦截数据并推流，按 Ctrl+C 停止...")
+    print(f"📡 LSL [Neuracle_EEG] 局域网广播已开启！")
+    print("🚀 正在实时推流 (抗积压模式)，按 Ctrl+C 停止...\n")
 
-    # 🌟 新增：看门狗计时器，记录上一次收到有效数据的时间
     last_data_time = time.time()
+    WATCHDOG_THRESHOLD = 10.0
 
     try:
         while True:
-            # 使用官方接口获取新数据长度
+            # 获取新到的点数
             nUpdate = thread_data_server.GetDataLenCount()
 
-            if nUpdate > 0:
-                # 🌟 收到新数据，立刻“喂狗”，重置计时器！
-                last_data_time = time.time()
-
-                # 使用官方接口获取缓存池数据
+            # 🌟 [策略 A]：检测到严重积压 (超过3秒数据未读)，强制追赶清空
+            if nUpdate > 3000:
+                print(f"\n⚠️ 警告：检测到数据积压 ({nUpdate} 点)，执行强制同步...")
                 data = thread_data_server.GetBufferData()
                 thread_data_server.ResetDataLenCount()
+                if data is not None and data.shape[1] > 0:
+                    # 丢弃陈旧数据，只取最新的 1000 个采样点发送以保持实时性
+                    new_data_chunk = data[:, -1000:]
+                    outlet.push_chunk(new_data_chunk.T.tolist())
+                    last_data_time = time.time()
+                continue
 
-                # 🔪 只截取矩阵最末尾的 nUpdate 个最新数据点
-                new_data_chunk = data[:, -nUpdate:]
+            # 🌟 [策略 B]：正常推流逻辑
+            if nUpdate > 0:
+                data = thread_data_server.GetBufferData()
+                if data is not None and data.shape[1] >= nUpdate:
+                    last_data_time = time.time()
 
-                # 转换格式并推入 LSL
-                chunk_to_push = new_data_chunk.T.tolist()
-                outlet.push_chunk(chunk_to_push)
+                    # 截取最新数据
+                    new_data_chunk = data[:, -nUpdate:]
 
+                    # 必须在 push 前 Reset，防止计数器在计算过程中继续累加导致溢出
+                    thread_data_server.ResetDataLenCount()
+                    outlet.push_chunk(new_data_chunk.T.tolist())
+
+                    # 打印推流提示
+                    if nUpdate > 50:  # 只有数据量够大时才打点
+                        print(".", end="", flush=True)
             else:
-                # 🌟 核心修复：看门狗巡逻
-                # 如果当前时间距离最后一次收到数据已经超过了 3.0 秒，果断判定断开！
-                if time.time() - last_data_time > 3.0:
-                    print("\n🚨 [看门狗报警] 超过 3 秒未收到脑电新数据！")
-                    print("❌ 设备可能已关机、休眠，或 TCP 局域网连接已物理断开！")
-                    break  # 主动跳出循环，触发 finally 干净利落安全关闭设备
+                # 检查看门狗
+                elapsed = time.time() - last_data_time
+                if elapsed > WATCHDOG_THRESHOLD:
+                    print(f"\n\n🚨 [看门狗报警] 持续 {WATCHDOG_THRESHOLD} 秒未收到新数据流。")
+                    print("可能原因：1.Recorder停止采集 2.硬件断连 3.TCP链路阻塞")
+                    break
 
-            # 20ms 轮询，保证极低延迟
-            time.sleep(0.02)
+            # 🌟 缩短轮询间隔至 10ms，提高在高频采样下的读取响应
+            time.sleep(0.01)
 
     except KeyboardInterrupt:
         print("\n🛑 收到手动停止指令 (Ctrl+C)。")
     except Exception as e:
-        print(f"\n⚠️ 运行时发生异常: {e}")
+        print(f"\n⚠️ 运行时异常: {e}")
     finally:
-        print("🔌 正在安全关闭底层 TCP 线程和 LSL 出口...")
+        print("🔌 正在安全释放设备连接...")
         thread_data_server.stop()
-        # 注意：pylsl 的 StreamOutlet 只要出作用域/脚本结束，会自动销毁回收水管
         print("👋 桥接器已安全退出。")
 
 

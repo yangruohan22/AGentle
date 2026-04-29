@@ -8,7 +8,7 @@ import time
 DEVICE_NAME = "Dev1"  # NI MAX 里的设备名
 SAMPLE_RATE = 1000  # 采样率 1000 Hz
 CHUNK_SIZE = 100  # 每 0.1 秒读取一次 (100个点)
-STREAM_NAME = "NI_6009_Physio"
+STREAM_NAME = "Physio_NI6009"
 STREAM_TYPE = "Physiology"
 
 

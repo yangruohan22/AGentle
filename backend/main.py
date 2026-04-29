@@ -87,7 +87,14 @@ async def start_baseline(data: SetupData):
         if active_baseline_process is not None:
             active_baseline_process.terminate()
 
-        active_baseline_process = subprocess.Popen(["python", "baseline_recorder.py", data.sub_id, str(data.duration)])
+        # 🌟 核心修复：锁定当前 backend 文件夹的绝对路径
+        cwd_path = os.path.abspath(os.path.dirname(__file__))
+
+        # 将 cwd_path 传入，保证不管在哪运行 main.py 都能精准找到录制脚本！
+        active_baseline_process = subprocess.Popen(
+            ["python", "baseline_recorder.py", data.sub_id, str(data.duration)],
+            cwd=cwd_path
+        )
     except Exception as e:
         print(f"启动录制脚本失败: {e}")
     return {"status": "success"}
@@ -101,21 +108,13 @@ async def generate_base_means():
     if not current_baseline_sub_id:
         return {"status": "error", "msg": "找不到当前被试的 Sub_ID"}
 
-    # 安全锁：确保录制脚本已经完全退出，文件写入完毕，防止文件被锁！
-    if active_baseline_process is not None:
-        if active_baseline_process.poll() is None:
-            print(f"⏳ 正在等待录制脚本优雅保存数据并退出...")
-            try:
-                active_baseline_process.wait(timeout=5)  # 最多等5秒钟让它存文件
-            except subprocess.TimeoutExpired:
-                active_baseline_process.terminate()
-        active_baseline_process = None
+    # 🌟 核心修复 1：取消 5 秒暗杀机制！
+    # 画 24 张高清子图需要 10~20 秒，绝对不能 timeout 后 terminate 它！
+    # 把它从死刑名单上划掉，让它在后台继续安静画图
 
-    print(
-        f"[{datetime.now().strftime('%H:%M:%S')}] ⚙️ 正在后台隐式计算基线特征与提取 ICA (Sub: {current_baseline_sub_id})...")
+    print(f"[{datetime.now().strftime('%H:%M:%S')}] ⚙️ 正在后台计算基线特征，并等待 ICA 出图...")
     try:
         cwd_path = os.path.abspath(os.path.dirname(__file__))
-        # 启动计算子进程（不阻塞前端）
         active_base_means_process = subprocess.Popen(["python", "generate_base_means.py", current_baseline_sub_id],
                                                      cwd=cwd_path)
     except Exception as e:
